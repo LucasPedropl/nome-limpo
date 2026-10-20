@@ -31,6 +31,10 @@ export default {
         sans: ['Onest', 'system-ui', 'sans-serif'],
         mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
       },
+      // Tailwind 3 não traz o degrau 4.5 por padrão; sem isso p-4.5/h-4.5 viram padding zero
+      spacing: {
+        4.5: '1.125rem',
+      },
       maxWidth: {
         site: '76rem',
       },

@@ -179,11 +179,11 @@ export function ScoreSimulatorSection({ onOpenCheckout }: ScoreSimulatorProps) {
               </div>
 
               <div className="rounded-2xl border border-line bg-ink p-4 sm:p-5 space-y-2.5 sm:space-y-3">
-                <div className="flex items-center justify-between text-xs sm:text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-xs sm:text-sm">
                   <span className="text-cream-dim">Prazo de Baixa Externa:</span>
-                  <span className="font-mono font-bold text-cream">30 a 45 dias úteis</span>
+                  <span className="font-mono font-bold text-cream whitespace-nowrap">30 a 45 dias úteis</span>
                 </div>
-                <div className="flex items-center justify-between text-xs sm:text-sm pt-2 border-t border-line/60">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-xs sm:text-sm pt-2 border-t border-line/60">
                   <span className="text-cream-dim">Assinatura Mensal:</span>
                   <span className="font-mono font-black text-brand-light text-lg sm:text-xl">{PLAN_PRICE_FORMATTED}</span>
                 </div>

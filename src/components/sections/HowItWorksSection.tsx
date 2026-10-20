@@ -51,7 +51,7 @@ export function HowItWorksSection({ onOpenCheckout }: HowItWorksSectionProps) {
                   </p>
                 </div>
 
-                <div className="mt-6 sm:mt-8 border-t border-line/60 pt-3.5 sm:pt-4 flex items-center justify-between text-xs">
+                <div className="mt-6 sm:mt-8 border-t border-line/60 pt-3.5 sm:pt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
                   <span className="inline-flex items-center gap-1.5 font-mono text-[11px] sm:text-xs font-semibold text-brand-light">
                     <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-signal shrink-0" />
                     {s.badge}
@@ -67,7 +67,7 @@ export function HowItWorksSection({ onOpenCheckout }: HowItWorksSectionProps) {
 
         {/* Banner de Garantia & Suporte Humano */}
         <div className="mt-12 sm:mt-16 rounded-3xl border border-line bg-ink-raised p-5 sm:p-8 md:p-10 flex flex-col lg:flex-row items-center justify-between gap-6 sm:gap-8 shadow-2xl min-w-0">
-          <div className="flex items-start sm:items-center gap-4 sm:gap-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
             <span className="flex h-12 w-12 sm:h-16 sm:w-16 shrink-0 items-center justify-center rounded-2xl bg-brand/15 text-brand-light">
               <ShieldCheck className="h-7 w-7 sm:h-9 sm:w-9" />
             </span>

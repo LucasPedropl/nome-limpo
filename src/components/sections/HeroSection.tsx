@@ -83,7 +83,7 @@ export function HeroSection({ onOpenCheckout }: HeroSectionProps) {
                 className="w-full sm:w-auto gap-2 text-sm sm:text-base px-6 py-3.5 sm:px-8 sm:py-4"
               >
                 <ShieldCheck className="h-5 w-5 shrink-0" />
-                <span>Regularizar Agora (R$ 100/mês)</span>
+                <span>Regularizar Agora<span className="hidden sm:inline"> (R$ 100/mês)</span></span>
                 <ArrowRight className="h-4 w-4 shrink-0" />
               </Button>
 
@@ -141,7 +141,7 @@ export function HeroSection({ onOpenCheckout }: HeroSectionProps) {
                 </span>
                 <div className="mt-3 sm:mt-4 flex items-center justify-between sm:justify-center gap-2 sm:gap-6">
                   <div className="text-left min-w-0">
-                    <span className="text-[10px] sm:text-xs text-red-400 font-mono block truncate">Antes (Negativado)</span>
+                    <span className="text-[10px] sm:text-xs text-red-400 font-mono block leading-tight">Antes (Negativado)</span>
                     <span className="text-xl sm:text-3xl font-black text-red-400 font-mono">240</span>
                   </div>
                   <div className="flex flex-col items-center shrink-0">
@@ -149,7 +149,7 @@ export function HeroSection({ onOpenCheckout }: HeroSectionProps) {
                     <span className="text-[9px] sm:text-[10px] text-brand-light font-mono font-bold mt-0.5">REABILITAÇÃO</span>
                   </div>
                   <div className="text-right min-w-0">
-                    <span className="text-[10px] sm:text-xs text-brand-light font-mono block truncate">Após Regularização</span>
+                    <span className="text-[10px] sm:text-xs text-brand-light font-mono block leading-tight">Após Regularização</span>
                     <span className="text-2xl sm:text-4xl font-black text-brand-light font-mono">780+</span>
                   </div>
                 </div>
@@ -162,17 +162,17 @@ export function HeroSection({ onOpenCheckout }: HeroSectionProps) {
 
               {/* Checklist de Itens Processados */}
               <div className="mt-4 sm:mt-6 space-y-2.5 sm:space-y-3">
-                <div className="flex items-center justify-between rounded-xl bg-ink/70 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-line/60 gap-2">
-                  <span className="text-cream truncate">Apontamentos em Birôs Públicos</span>
+                <div className="flex flex-wrap items-center justify-between rounded-xl bg-ink/70 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-line/60 gap-x-2 gap-y-1">
+                  <span className="text-cream">Apontamentos em Birôs Públicos</span>
                   <span className="text-brand-light font-mono font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap text-[11px] sm:text-sm">
                     <Check className="h-3.5 w-3.5" /> Baixa Extrajudicial
                   </span>
                 </div>
-                <div className="flex items-center justify-between rounded-xl bg-ink/70 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-line/60 gap-2">
+                <div className="flex flex-wrap items-center justify-between rounded-xl bg-ink/70 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-line/60 gap-x-2 gap-y-1">
                   <span className="text-cream">Prazo de Execução</span>
                   <span className="text-cream font-mono font-medium shrink-0 whitespace-nowrap text-[11px] sm:text-sm">30 a 45 dias úteis</span>
                 </div>
-                <div className="flex items-center justify-between rounded-xl bg-ink/70 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-line/60 gap-2">
+                <div className="flex flex-wrap items-center justify-between rounded-xl bg-ink/70 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-line/60 gap-x-2 gap-y-1">
                   <span className="text-cream">Investimento Mensal</span>
                   <span className="text-brand-light font-mono font-bold text-xs sm:text-base shrink-0 whitespace-nowrap">R$ 100,00</span>
                 </div>

@@ -86,7 +86,7 @@ export function PricingSection({ onOpenCheckout }: PricingSectionProps) {
                 className="w-full justify-center gap-2 text-sm sm:text-base py-3.5 sm:py-4 px-4 sm:px-8 shadow-xl"
               >
                 <Zap className="h-4 w-4 sm:h-5 sm:w-5 fill-current shrink-0" />
-                <span>Contratar Plano Agora (R$ 100/mês)</span>
+                <span>Contratar Plano Agora<span className="hidden sm:inline"> (R$ 100/mês)</span></span>
                 <ArrowRight className="h-4 w-4 shrink-0" />
               </Button>
               <p className="mt-2.5 sm:mt-3.5 text-center text-[11px] sm:text-xs text-cream-dim">
