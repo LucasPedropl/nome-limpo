@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Nome Limpo Express — Manutenção e Regularização Cadastral de CPF e CNPJ</title>
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('nl_theme');
+          if (saved === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <meta
+      name="description"
+      content="Auxílio na regularização cadastral perante órgãos externos de proteção ao crédito. Recupere sua tranquilidade financeira e poder de compra por apenas R$ 100,00/mês."
+    />
+    <meta property="og:title" content="Nome Limpo Express — Regularização Cadastral de CPF/CNPJ" />
+    <meta
+      property="og:description"
+      content="Plataforma de manutenção e reabilitação de crédito. Processo 100% digital com validação imediata e garantia contratual."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600&family=Onest:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

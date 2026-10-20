@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="badgeBlueFav" x1="10" y1="10" x2="54" y2="54" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="60%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </linearGradient>
+    <linearGradient id="orbitGreenFav" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="18" fill="#090d16" />
+
+  <!-- Arco Orbital -->
+  <path d="M10 32C10 19.85 19.85 10 32 10C39.5 10 46 13.5 50.5 19" stroke="url(#orbitGreenFav)" stroke-width="3.5" stroke-linecap="round" />
+  <path d="M54 32C54 44.15 44.15 54 32 54C24.5 54 18 50.5 13.5 45" stroke="url(#orbitGreenFav)" stroke-width="3.5" stroke-linecap="round" />
+
+  <!-- Selo Roseta Verificado Azul Central -->
+  <g transform="translate(16, 16)">
+    <path
+      d="M16 0L20.1 3.5L25.5 3.3L27.6 8.3L32.4 10.7L32 16.1L35.5 20.2L32.8 24.9L33.7 30.3L28.6 32.1L26.8 37.2L21.5 36.4L18 40.2L13.5 37.2L8.2 38.1L6.3 33.1L1.5 30.7L1.9 25.3L-1.6 21.2L1.1 16.5L0.2 11.1L5.3 9.3L7.1 4.2L12.4 5L16 0Z"
+      transform="scale(0.8) translate(2, 2)"
+      fill="url(#badgeBlueFav)"
+    />
+    <path
+      d="M10 16.5L14.5 21L23 12"
+      stroke="#ffffff"
+      stroke-width="3.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+</svg>

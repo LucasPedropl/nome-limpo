@@ -1,0 +1,150 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Tema Claro (Padrão) */
+    --ink: 210 25% 98%;          /* #F8FAFC - fundo principal limpo */
+    --ink-raised: 0 0% 100%;      /* #FFFFFF - cards e containers elevados */
+    --ink-sunken: 214 32% 94%;    /* #F1F5F9 - superfícies rebaixadas e inputs */
+    --line: 214 20% 88%;          /* #CBD5E1 - bordas e divisores */
+    --cream: 222 47% 11%;         /* #0F172A - texto principal de alto contraste */
+    --cream-dim: 215 16% 40%;     /* #475569 - texto secundário legível */
+    --brand: 158 84% 36%;         /* #059669 - esmeralda equilibrado */
+    --brand-light: 158 84% 30%;   /* #047857 - verde com alto contraste para textos */
+    --brand-dark: 160 84% 24%;    /* #065F46 - hover profundo */
+    --accent: 217 91% 54%;        /* #2563EB - azul destaque */
+    --accent-light: 210 90% 45%;   /* #0284C7 - ciano */
+    --signal: 142 71% 40%;        /* #16A34A - verde status / WhatsApp */
+    color-scheme: light;
+  }
+
+  .dark {
+    /* Tema Escuro */
+    --ink: 222 47% 7%;            /* #090D16 */
+    --ink-raised: 222 36% 11%;    /* #111827 */
+    --ink-sunken: 222 50% 4%;     /* #05080E */
+    --line: 217 28% 18%;          /* #212D3D */
+    --cream: 210 40% 98%;         /* #F8FAFC */
+    --cream-dim: 215 18% 66%;     /* #94A3B8 */
+    --brand: 158 80% 42%;
+    --brand-light: 158 84% 54%;
+    --brand-dark: 160 84% 30%;
+    --accent: 217 91% 60%;
+    --accent-light: 199 89% 48%;
+    --signal: 142 71% 45%;
+    color-scheme: dark;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-ink font-sans text-cream antialiased selection:bg-brand/30 selection:text-cream transition-colors duration-200;
+    font-size: 1.05rem;
+    line-height: 1.75;
+  }
+
+  a,
+  button,
+  summary {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: hsl(var(--brand) / 0.18);
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--brand));
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  summary {
+    list-style: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+}
+
+@layer components {
+  .font-wide {
+    font-family: inherit;
+    letter-spacing: -0.008em;
+  }
+
+  .eyebrow {
+    @apply font-mono text-xs uppercase tracking-[0.22em] text-brand-light font-bold;
+  }
+
+  .scanlines {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      hsl(var(--cream) / 0.02) 0px,
+      hsl(var(--cream) / 0.02) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  }
+
+  .scroll-rail {
+    scrollbar-width: none;
+    scroll-snap-type: x mandatory;
+  }
+
+  .scroll-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .glow-box {
+    box-shadow: 0 10px 30px -10px hsl(var(--brand) / 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  }
+
+  .dark .glow-box {
+    box-shadow: 0 0 40px -10px hsl(var(--brand) / 0.25);
+  }
+
+  .glow-accent {
+    box-shadow: 0 10px 30px -10px hsl(var(--accent) / 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  }
+
+  .dark .glow-accent {
+    box-shadow: 0 0 40px -10px hsl(var(--accent) / 0.25);
+  }
+
+  .modal-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--line)) transparent;
+  }
+
+  .modal-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .modal-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .modal-scroll::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--line));
+    border-radius: 9999px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
