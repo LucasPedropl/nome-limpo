@@ -1,3 +1,5 @@
+import logoLight from '@/assets/logo-light.png'
+import logoDark from '@/assets/logo-dark.png'
 import { cn } from '@/lib/cn'
 
 interface BrandLogoProps {
@@ -15,22 +17,26 @@ export function BrandLogo({ className, size = 'md' }: BrandLogoProps) {
 
   return (
     <div className={cn('inline-flex items-center select-none group shrink-0', className)}>
-      {/* Versão Tema Claro (Logotipo completo em imagem, sem texto HTML) */}
+      {/* Versão Tema Claro (Logotipo oficial completo em imagem, sem texto HTML) */}
       <img
-        src="/logo-light.png"
+        src={logoLight}
         alt="Nome Limpo Express"
+        width={388}
+        height={110}
         className={cn(
-          'block dark:hidden object-contain shrink-0 transition-all duration-300 group-hover:scale-[1.02] drop-shadow-sm',
+          'logo-light-version object-contain shrink-0 transition-all duration-300 group-hover:scale-[1.02] drop-shadow-sm',
           sizeClasses
         )}
       />
 
-      {/* Versão Tema Escuro (Logotipo adaptado para alto contraste em fundo escuro) */}
+      {/* Versão Tema Escuro (Logotipo oficial para alto contraste no tema escuro) */}
       <img
-        src="/logo-dark.png"
+        src={logoDark}
         alt="Nome Limpo Express"
+        width={388}
+        height={110}
         className={cn(
-          'hidden dark:block object-contain shrink-0 transition-all duration-300 group-hover:scale-[1.02] drop-shadow-[0_2px_12px_rgba(16,185,129,0.22)]',
+          'logo-dark-version object-contain shrink-0 transition-all duration-300 group-hover:scale-[1.02] drop-shadow-[0_2px_12px_rgba(16,185,129,0.22)]',
           sizeClasses
         )}
       />
