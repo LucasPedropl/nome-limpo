@@ -8,15 +8,15 @@ interface BrandLogoProps {
 }
 
 export function BrandLogo({ className, size = 'md' }: BrandLogoProps) {
-  // Proporção horizontal ~3.5:1 da logo oficial da marca
+  // Proporção horizontal ~3.5:1 da logo oficial da marca com limite responsivo
   const sizeClasses = {
-    sm: 'h-8 sm:h-9 w-auto',
-    md: 'h-9 sm:h-10 xl:h-11 w-auto',
-    lg: 'h-11 sm:h-13 w-auto',
+    sm: 'h-7 sm:h-8 md:h-9 w-auto max-w-[145px] sm:max-w-none',
+    md: 'h-8 sm:h-10 xl:h-11 w-auto max-w-[160px] sm:max-w-none',
+    lg: 'h-10 sm:h-12 xl:h-13 w-auto max-w-[180px] sm:max-w-none',
   }[size]
 
   return (
-    <div className={cn('inline-flex items-center select-none group shrink-0', className)}>
+    <div className={cn('inline-flex items-center select-none group shrink-0 min-w-0', className)}>
       {/* Versão Tema Claro (Logotipo oficial completo em imagem, sem texto HTML) */}
       <img
         src={logoLight}

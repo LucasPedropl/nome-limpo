@@ -46,7 +46,7 @@ export function App() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-ink text-cream selection:bg-brand/30 selection:text-cream transition-colors duration-200">
+    <div className="flex min-h-screen flex-col bg-ink text-cream selection:bg-brand/30 selection:text-cream transition-colors duration-200 overflow-x-hidden">
       {/* Acessibilidade: pular para conteúdo */}
       <a
         href="#conteudo-principal"

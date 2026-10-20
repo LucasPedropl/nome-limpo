@@ -40,9 +40,9 @@ export function ScoreSimulatorSection({ onOpenCheckout }: ScoreSimulatorProps) {
   return (
     <section
       id={SECTION_IDS.simulator}
-      className="relative overflow-hidden border-t border-line bg-ink-sunken py-20 sm:py-32"
+      className="relative overflow-hidden border-t border-line bg-ink-sunken py-16 sm:py-32"
     >
-      <div className="relative mx-auto max-w-site px-5 sm:px-8">
+      <div className="relative mx-auto max-w-site px-4 sm:px-6 lg:px-8">
         <SectionHeader
           eyebrow="Simulador Interativo"
           titleId="simulator-title"
@@ -51,28 +51,28 @@ export function ScoreSimulatorSection({ onOpenCheckout }: ScoreSimulatorProps) {
           alignment="center"
         />
 
-        <div className="mt-16 sm:mt-20 grid gap-10 lg:grid-cols-12 lg:items-center">
-          {/* Controles da Simulação com Mais Espaçamento */}
-          <div className="rounded-3xl border border-line bg-ink-raised p-8 sm:p-10 lg:col-span-7 space-y-8 shadow-xl">
+        <div className="mt-12 sm:mt-20 grid gap-8 lg:grid-cols-12 lg:items-center min-w-0">
+          {/* Controles da Simulação com Espaçamento Responsivo */}
+          <div className="rounded-3xl border border-line bg-ink-raised p-4.5 sm:p-8 lg:p-10 lg:col-span-7 space-y-6 sm:space-y-8 shadow-xl min-w-0 w-full">
             {/* Seletor PF ou PJ */}
             <div>
-              <label className="text-xs font-mono font-bold uppercase tracking-wider text-cream-dim block mb-3.5">
+              <label className="text-[11px] sm:text-xs font-mono font-bold uppercase tracking-wider text-cream-dim block mb-3">
                 1. Selecione o Tipo de Cadastro
               </label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
                 <button
                   type="button"
                   onClick={() => {
                     setDocType('PF')
                     setGoal('cartao')
                   }}
-                  className={`flex items-center justify-center gap-2 rounded-2xl border py-4 px-5 text-sm font-bold transition-all ${
+                  className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl border py-3 px-3 sm:py-4 sm:px-5 text-xs sm:text-sm font-bold text-center transition-all ${
                     docType === 'PF'
                       ? 'border-brand bg-brand/15 text-brand-light ring-2 ring-brand/30 shadow-md'
                       : 'border-line bg-ink text-cream-dim hover:text-cream hover:bg-line/50'
                   }`}
                 >
-                  <span>Pessoa Física (CPF)</span>
+                  <span className="truncate">Pessoa Física (CPF)</span>
                 </button>
 
                 <button
@@ -81,25 +81,25 @@ export function ScoreSimulatorSection({ onOpenCheckout }: ScoreSimulatorProps) {
                     setDocType('PJ')
                     setGoal('fornecedor')
                   }}
-                  className={`flex items-center justify-center gap-2 rounded-2xl border py-4 px-5 text-sm font-bold transition-all ${
+                  className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl border py-3 px-3 sm:py-4 sm:px-5 text-xs sm:text-sm font-bold text-center transition-all ${
                     docType === 'PJ'
                       ? 'border-brand bg-brand/15 text-brand-light ring-2 ring-brand/30 shadow-md'
                       : 'border-line bg-ink text-cream-dim hover:text-cream hover:bg-line/50'
                   }`}
                 >
-                  <span>Empresa (CNPJ)</span>
+                  <span className="truncate">Empresa (CNPJ)</span>
                 </button>
               </div>
             </div>
 
             {/* Slider de Quantidade de Apontamentos */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-xs font-mono font-bold uppercase tracking-wider text-cream-dim">
-                  2. Quantidade Estimada de Restrições
+              <div className="flex items-center justify-between mb-2.5">
+                <label className="text-[11px] sm:text-xs font-mono font-bold uppercase tracking-wider text-cream-dim">
+                  2. Restrições Estimadas
                 </label>
-                <span className="font-mono text-base font-black text-brand-light">
-                  {debtCount === 1 ? '1 restrição' : debtCount >= 5 ? '5 ou mais restrições' : `${debtCount} restrições`}
+                <span className="font-mono text-sm sm:text-base font-black text-brand-light">
+                  {debtCount === 1 ? '1 restrição' : debtCount >= 5 ? '5+ restrições' : `${debtCount} restrições`}
                 </span>
               </div>
               <input
@@ -108,9 +108,9 @@ export function ScoreSimulatorSection({ onOpenCheckout }: ScoreSimulatorProps) {
                 max="5"
                 value={debtCount}
                 onChange={(e) => setDebtCount(parseInt(e.target.value, 10))}
-                className="w-full accent-brand cursor-pointer h-2.5 bg-ink rounded-lg"
+                className="w-full accent-brand cursor-pointer h-2 bg-ink rounded-lg"
               />
-              <div className="flex justify-between text-xs text-cream-dim font-mono mt-2">
+              <div className="flex justify-between text-[11px] sm:text-xs text-cream-dim font-mono mt-1.5">
                 <span>1 dívida</span>
                 <span>2</span>
                 <span>3</span>
@@ -121,10 +121,10 @@ export function ScoreSimulatorSection({ onOpenCheckout }: ScoreSimulatorProps) {
 
             {/* Objetivo Principal */}
             <div>
-              <label className="text-xs font-mono font-bold uppercase tracking-wider text-cream-dim block mb-3.5">
-                3. Qual o Seu Principal Objetivo com o Nome Limpo?
+              <label className="text-[11px] sm:text-xs font-mono font-bold uppercase tracking-wider text-cream-dim block mb-3">
+                3. Qual o Seu Principal Objetivo?
               </label>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-3">
                 {currentGoals.map((g) => {
                   const Icon = g.icon
                   const isSelected = goal === g.id
@@ -133,13 +133,13 @@ export function ScoreSimulatorSection({ onOpenCheckout }: ScoreSimulatorProps) {
                       key={g.id}
                       type="button"
                       onClick={() => setGoal(g.id)}
-                      className={`flex flex-col items-center justify-center rounded-2xl border p-4.5 text-center transition-all ${
+                      className={`flex sm:flex-col items-center justify-start sm:justify-center rounded-2xl border p-3.5 sm:p-4 text-left sm:text-center transition-all gap-3 sm:gap-2 ${
                         isSelected
                           ? 'border-brand bg-brand/10 text-brand-light ring-2 ring-brand/30 shadow-md'
                           : 'border-line bg-ink text-cream-dim hover:text-cream hover:bg-line/40'
                       }`}
                     >
-                      <Icon className="h-6 w-6 mb-2.5" />
+                      <Icon className="h-5 w-5 shrink-0" />
                       <span className="text-xs sm:text-sm font-bold leading-tight">{g.label}</span>
                     </button>
                   )
@@ -149,57 +149,57 @@ export function ScoreSimulatorSection({ onOpenCheckout }: ScoreSimulatorProps) {
           </div>
 
           {/* Resultado Projetado da Simulação */}
-          <div className="rounded-3xl border border-brand/40 bg-ink-raised p-8 sm:p-10 lg:col-span-5 relative glow-box shadow-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full bg-brand/15 px-3.5 py-1.5 text-xs font-mono font-bold text-brand-light">
-              <Sparkles className="h-4 w-4" />
-              <span>Projeção Cadastral Personalizada</span>
+          <div className="rounded-3xl border border-brand/40 bg-ink-raised p-4.5 sm:p-8 lg:p-10 lg:col-span-5 relative glow-box shadow-2xl min-w-0 w-full">
+            <div className="inline-flex items-center gap-2 rounded-full bg-brand/15 px-3 py-1.5 text-xs font-mono font-bold text-brand-light">
+              <Sparkles className="h-3.5 w-3.5 shrink-0" />
+              <span>Projeção Cadastral</span>
             </div>
 
-            <div className="mt-7 space-y-5">
-              <div className="rounded-2xl border border-line bg-ink p-5 sm:p-6">
-                <span className="text-xs text-cream-dim font-mono block mb-1">Status Atual Previsto</span>
-                <div className="flex items-center justify-between">
-                  <span className="text-base font-bold text-red-400">Restrição em Birôs de Crédito</span>
-                  <span className="font-mono text-xs font-bold text-red-400">Score &lt; 300</span>
+            <div className="mt-5 sm:mt-7 space-y-3.5 sm:space-y-4">
+              <div className="rounded-2xl border border-line bg-ink p-4 sm:p-5">
+                <span className="text-[11px] sm:text-xs text-cream-dim font-mono block mb-1">Status Atual Previsto</span>
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <span className="text-sm sm:text-base font-bold text-red-400">Restrição em Birôs de Crédito</span>
+                  <span className="font-mono text-xs font-bold text-red-400 whitespace-nowrap">Score &lt; 300</span>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-brand/50 bg-brand/10 p-5 sm:p-6">
-                <span className="text-xs text-brand-light font-mono block mb-1">Após Manutenção com Nome Limpo</span>
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-extrabold text-cream flex items-center gap-2">
-                    <CheckCircle2 className="h-5 w-5 text-signal" />
+              <div className="rounded-2xl border border-brand/50 bg-brand/10 p-4 sm:p-5">
+                <span className="text-[11px] sm:text-xs text-brand-light font-mono block mb-1">Após Manutenção Nome Limpo</span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-base sm:text-lg font-extrabold text-cream flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-signal shrink-0" />
                     Apontamentos Ocultados
                   </span>
-                  <span className="font-mono text-xs font-bold text-signal px-2 py-0.5 rounded-md bg-signal/15">Regularizado</span>
+                  <span className="font-mono text-xs font-bold text-signal px-2 py-0.5 rounded-md bg-signal/15 whitespace-nowrap">Regularizado</span>
                 </div>
-                <p className="mt-3 text-sm text-cream-dim/95 leading-relaxed font-normal">
+                <p className="mt-2.5 text-xs sm:text-sm text-cream-dim/95 leading-relaxed font-normal">
                   {selectedGoalObj.benefit}.
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-line bg-ink p-5 sm:p-6 space-y-3">
-                <div className="flex items-center justify-between text-sm">
+              <div className="rounded-2xl border border-line bg-ink p-4 sm:p-5 space-y-2.5 sm:space-y-3">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
                   <span className="text-cream-dim">Prazo de Baixa Externa:</span>
                   <span className="font-mono font-bold text-cream">30 a 45 dias úteis</span>
                 </div>
-                <div className="flex items-center justify-between text-sm pt-2 border-t border-line/60">
+                <div className="flex items-center justify-between text-xs sm:text-sm pt-2 border-t border-line/60">
                   <span className="text-cream-dim">Assinatura Mensal:</span>
-                  <span className="font-mono font-black text-brand-light text-xl">{PLAN_PRICE_FORMATTED}</span>
+                  <span className="font-mono font-black text-brand-light text-lg sm:text-xl">{PLAN_PRICE_FORMATTED}</span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-8 pt-2">
+            <div className="mt-6 sm:mt-8 pt-2">
               <Button
                 onClick={() => onOpenCheckout(docType)}
                 size="lg"
-                className="w-full justify-center gap-2.5 py-4 text-base shadow-xl"
+                className="w-full justify-center gap-2 py-3.5 sm:py-4 text-sm sm:text-base shadow-xl"
               >
                 <span>Contratar Plano para {docType === 'PF' ? 'Meu CPF' : 'Minha Empresa'}</span>
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 shrink-0" />
               </Button>
-              <p className="mt-3 text-center text-xs text-cream-dim font-normal">
+              <p className="mt-2.5 text-center text-[11px] sm:text-xs text-cream-dim font-normal">
                 Ativação imediata via PIX. Garantia contratual documentada.
               </p>
             </div>

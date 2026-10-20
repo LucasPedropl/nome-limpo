@@ -34,9 +34,9 @@ export function ComparisonSection() {
   return (
     <section
       id={SECTION_IDS.comparison}
-      className="relative overflow-hidden border-t border-line bg-ink-sunken py-20 sm:py-32"
+      className="relative overflow-hidden border-t border-line bg-ink-sunken py-16 sm:py-32"
     >
-      <div className="relative mx-auto max-w-site px-5 sm:px-8">
+      <div className="relative mx-auto max-w-site px-4 sm:px-6 lg:px-8">
         <SectionHeader
           eyebrow="Comparativo Direto"
           titleId="comparison-title"
@@ -45,9 +45,9 @@ export function ComparisonSection() {
           alignment="center"
         />
 
-        <div className="mt-16 sm:mt-20 overflow-hidden rounded-3xl border border-line bg-ink-raised shadow-2xl">
-          {/* Header da Tabela Desktop com Mais Respiro */}
-          <div className="hidden grid-cols-12 border-b border-line bg-ink p-6 text-xs sm:text-sm font-mono font-bold uppercase tracking-wider sm:grid">
+        <div className="mt-12 sm:mt-20 overflow-hidden rounded-3xl border border-line bg-ink-raised shadow-2xl min-w-0">
+          {/* Header da Tabela Desktop */}
+          <div className="hidden grid-cols-12 border-b border-line bg-ink p-5 sm:p-6 text-xs sm:text-sm font-mono font-bold uppercase tracking-wider sm:grid">
             <div className="col-span-4 text-cream-dim">Aspecto Analisado</div>
             <div className="col-span-4 text-red-400 flex items-center gap-2">
               <XCircle className="h-4 w-4" /> Com Restrições no Nome
@@ -57,12 +57,12 @@ export function ComparisonSection() {
             </div>
           </div>
 
-          {/* Linhas de Comparação Espaçosas */}
+          {/* Linhas de Comparação */}
           <div className="divide-y divide-line/70">
             {comparisons.map((c) => (
               <div
                 key={c.criterion}
-                className="grid gap-3.5 p-6 sm:p-7 sm:grid-cols-12 sm:items-center sm:gap-6 transition-colors hover:bg-ink/50"
+                className="grid gap-3 p-4.5 sm:p-7 sm:grid-cols-12 sm:items-center sm:gap-6 transition-colors hover:bg-ink/50"
               >
                 <div className="sm:col-span-4">
                   <span className="font-bold text-sm sm:text-base text-cream block sm:inline">
@@ -70,15 +70,15 @@ export function ComparisonSection() {
                   </span>
                 </div>
 
-                <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-xs sm:text-sm text-red-300 sm:col-span-4 sm:border-0 sm:bg-transparent sm:p-0 leading-relaxed font-normal">
-                  <div className="flex items-start gap-2.5 sm:block">
+                <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3.5 sm:p-0 text-xs sm:text-sm text-red-300 sm:col-span-4 sm:border-0 sm:bg-transparent leading-relaxed font-normal">
+                  <div className="flex items-start gap-2 sm:block">
                     <XCircle className="h-4 w-4 text-red-400 shrink-0 sm:hidden mt-0.5" />
                     <span>{c.negative}</span>
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-brand/20 bg-brand/5 p-4 text-xs sm:text-sm text-cream sm:col-span-4 sm:border-0 sm:bg-transparent sm:p-0 leading-relaxed font-normal">
-                  <div className="flex items-start gap-2.5 sm:block">
+                <div className="rounded-xl border border-brand/20 bg-brand/5 p-3.5 sm:p-0 text-xs sm:text-sm text-cream sm:col-span-4 sm:border-0 sm:bg-transparent leading-relaxed font-normal">
+                  <div className="flex items-start gap-2 sm:block">
                     <CheckCircle2 className="h-4 w-4 text-signal shrink-0 sm:hidden mt-0.5" />
                     <span>{c.positive}</span>
                   </div>

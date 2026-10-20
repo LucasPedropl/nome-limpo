@@ -23,9 +23,9 @@ export function FaqSection() {
   return (
     <section
       id={SECTION_IDS.faq}
-      className="relative overflow-hidden border-t border-line bg-ink py-20 sm:py-32"
+      className="relative overflow-hidden border-t border-line bg-ink py-16 sm:py-32"
     >
-      <div className="relative mx-auto max-w-site px-5 sm:px-8">
+      <div className="relative mx-auto max-w-site px-4 sm:px-6 lg:px-8">
         <SectionHeader
           eyebrow="Tire Suas Dúvidas"
           titleId="faq-title"
@@ -35,7 +35,7 @@ export function FaqSection() {
         />
 
         {/* Filtros de Categoria */}
-        <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
+        <div className="mt-8 sm:mt-12 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
           {categories.map((cat) => (
             <button
               key={cat.id}
@@ -44,7 +44,7 @@ export function FaqSection() {
                 setFilterCategory(cat.id)
                 setOpenIndex(null)
               }}
-              className={`rounded-2xl px-5 py-2.5 font-mono text-xs sm:text-sm font-semibold transition-all ${
+              className={`rounded-2xl px-3.5 py-2 sm:px-5 sm:py-2.5 font-mono text-xs sm:text-sm font-semibold transition-all ${
                 filterCategory === cat.id
                   ? 'border border-brand bg-brand/20 text-brand-light shadow-md'
                   : 'border border-line bg-ink-raised text-cream-dim hover:text-cream hover:bg-line/60'
@@ -55,34 +55,34 @@ export function FaqSection() {
           ))}
         </div>
 
-        {/* Lista de Acordeão com Espaçamento Amplo */}
-        <div className="mt-12 max-w-3xl mx-auto space-y-4">
+        {/* Lista de Acordeão com Espaçamento Responsivo */}
+        <div className="mt-8 sm:mt-12 max-w-3xl mx-auto space-y-3.5 sm:space-y-4 min-w-0">
           {filteredFaqs.map((faq, index) => {
             const isOpen = openIndex === index
             return (
               <div
                 key={faq.question}
-                className="overflow-hidden rounded-2xl border border-line bg-ink-raised transition-all duration-200"
+                className="overflow-hidden rounded-2xl border border-line bg-ink-raised transition-all duration-200 min-w-0"
               >
                 <button
                   type="button"
                   onClick={() => setOpenIndex(isOpen ? null : index)}
                   aria-expanded={isOpen}
-                  className="flex w-full items-center justify-between p-6 sm:p-7 text-left transition-colors hover:bg-line/20"
+                  className="flex w-full items-center justify-between p-4.5 sm:p-7 text-left transition-colors hover:bg-line/20 gap-3"
                 >
-                  <span className="font-bold text-base sm:text-lg text-cream pr-4 flex items-center gap-3.5">
-                    <HelpCircle className="h-5 w-5 text-brand-light shrink-0" />
+                  <span className="font-bold text-sm sm:text-lg text-cream flex items-start sm:items-center gap-2.5 sm:gap-3.5 pr-2">
+                    <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5 text-brand-light shrink-0 mt-0.5 sm:mt-0" />
                     <span>{faq.question}</span>
                   </span>
                   <ChevronDown
-                    className={`h-5 w-5 text-cream-dim transition-transform duration-200 shrink-0 ${
+                    className={`h-4 w-4 sm:h-5 sm:w-5 text-cream-dim transition-transform duration-200 shrink-0 ${
                       isOpen ? 'rotate-180 text-brand-light' : ''
                     }`}
                   />
                 </button>
 
                 {isOpen && (
-                  <div className="border-t border-line/60 bg-ink/60 px-6 py-5 sm:px-7 sm:py-6 text-sm sm:text-base text-cream-dim leading-relaxed animate-screen-in">
+                  <div className="border-t border-line/60 bg-ink/60 px-4.5 py-4 sm:px-7 sm:py-6 text-xs sm:text-base text-cream-dim leading-relaxed animate-screen-in">
                     {faq.answer}
                   </div>
                 )}
@@ -92,18 +92,18 @@ export function FaqSection() {
         </div>
 
         {/* Suporte Direto */}
-        <div className="mt-16 sm:mt-20 text-center">
-          <p className="text-sm sm:text-base text-cream-dim">
+        <div className="mt-12 sm:mt-20 text-center px-2">
+          <p className="text-xs sm:text-base text-cream-dim">
             Ainda ficou com alguma dúvida sobre o seu caso específico?
           </p>
           <a
             href={SALES_CONTACT_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-4 inline-flex items-center gap-3 rounded-2xl border border-line bg-ink-raised px-7 py-3.5 text-sm sm:text-base font-bold text-cream hover:bg-line transition-all shadow-md"
+            className="mt-3 sm:mt-4 inline-flex items-center justify-center gap-2.5 rounded-2xl border border-line bg-ink-raised px-4.5 py-3 sm:px-7 sm:py-3.5 text-xs sm:text-base font-bold text-cream hover:bg-line transition-all shadow-md max-w-full text-center"
           >
-            <MessageCircle className="h-5 w-5 text-signal" />
-            <span>Conversar com nossa equipe no WhatsApp</span>
+            <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 text-signal shrink-0" />
+            <span className="truncate sm:whitespace-normal">Conversar no WhatsApp</span>
           </a>
         </div>
       </div>
