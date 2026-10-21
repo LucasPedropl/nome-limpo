@@ -17,7 +17,6 @@ export const SALES_CONTACT_URL =
 
 export const SECTION_IDS = {
   hero: 'inicio',
-  simulator: 'simulador',
   benefits: 'beneficios',
   howItWorks: 'como-funciona',
   pricing: 'plano',
@@ -29,7 +28,6 @@ export const SECTION_IDS = {
 export const NAV_ITEMS = [
   { label: 'Benefícios', href: `#${SECTION_IDS.benefits}` },
   { label: 'Como Funciona', href: `#${SECTION_IDS.howItWorks}` },
-  { label: 'Simulador', href: `#${SECTION_IDS.simulator}` },
   { label: 'Plano Mensal', href: `#${SECTION_IDS.pricing}` },
   { label: 'Comparativo', href: `#${SECTION_IDS.comparison}` },
   { label: 'Dúvidas Frequentes', href: `#${SECTION_IDS.faq}` },

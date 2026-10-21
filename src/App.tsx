@@ -5,7 +5,6 @@ import { FloatingWhatsAppButton } from '@/components/ui/FloatingWhatsAppButton'
 import { HeroSection } from '@/components/sections/HeroSection'
 import { BenefitsSection } from '@/components/sections/BenefitsSection'
 import { HowItWorksSection } from '@/components/sections/HowItWorksSection'
-import { ScoreSimulatorSection } from '@/components/sections/ScoreSimulatorSection'
 import { PricingSection } from '@/components/sections/PricingSection'
 import { ComparisonSection } from '@/components/sections/ComparisonSection'
 import { FaqSection } from '@/components/sections/FaqSection'
@@ -63,7 +62,6 @@ export function App() {
         <HeroSection onOpenCheckout={() => handleOpenCheckout('PF')} />
         <BenefitsSection />
         <HowItWorksSection onOpenCheckout={() => handleOpenCheckout('PF')} />
-        <ScoreSimulatorSection onOpenCheckout={handleOpenCheckout} />
         <PricingSection onOpenCheckout={() => handleOpenCheckout('PF')} />
         <ComparisonSection />
         <FaqSection />

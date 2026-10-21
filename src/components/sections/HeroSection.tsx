@@ -1,4 +1,4 @@
-import { Check, ShieldCheck, Sparkles, ArrowRight, Zap, TrendingUp, AlertTriangle } from 'lucide-react'
+import { Check, ShieldCheck, Sparkles, ArrowRight, Zap, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { PLAN_PRICE_FORMATTED, SECTION_IDS } from '@/content/site'
 
@@ -60,7 +60,7 @@ export function HeroSection({ onOpenCheckout }: HeroSectionProps) {
                   <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 stroke-[3]" />
                 </span>
                 <p className="text-xs sm:text-base text-cream leading-relaxed font-normal">
-                  <strong className="font-bold text-cream">Garantia ou Seu Dinheiro de Volta:</strong> Prazo contratual de 30 a 45 dias úteis com garantia formal documentada.
+                  <strong className="font-bold text-cream">Garantia ou Seu Dinheiro de Volta:</strong> Prazo de 7 a 10 dias úteis com garantia formal documentada.
                 </p>
               </div>
 
@@ -88,11 +88,10 @@ export function HeroSection({ onOpenCheckout }: HeroSectionProps) {
               </Button>
 
               <a
-                href={`#${SECTION_IDS.simulator}`}
+                href={`#${SECTION_IDS.howItWorks}`}
                 className="inline-flex items-center justify-center rounded-xl border border-line bg-ink-raised px-5 py-3.5 text-xs sm:text-sm font-semibold text-cream transition-colors hover:bg-line text-center"
               >
-                <TrendingUp className="h-4 w-4 mr-2 text-accent-light shrink-0" />
-                Simular Impacto no Score
+                Como Funciona
               </a>
             </div>
 
@@ -170,7 +169,7 @@ export function HeroSection({ onOpenCheckout }: HeroSectionProps) {
                 </div>
                 <div className="flex flex-wrap items-center justify-between rounded-xl bg-ink/70 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-line/60 gap-x-2 gap-y-1">
                   <span className="text-cream">Prazo de Execução</span>
-                  <span className="text-cream font-mono font-medium shrink-0 whitespace-nowrap text-[11px] sm:text-sm">30 a 45 dias úteis</span>
+                  <span className="text-cream font-mono font-medium shrink-0 whitespace-nowrap text-[11px] sm:text-sm">7 a 10 dias úteis</span>
                 </div>
                 <div className="flex flex-wrap items-center justify-between rounded-xl bg-ink/70 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-line/60 gap-x-2 gap-y-1">
                   <span className="text-cream">Investimento Mensal</span>

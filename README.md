@@ -13,8 +13,7 @@ Inspirada no layout, padrão visual, fluxo de navegação e estratégia de alta 
 3. **Plano Único e Transparente**: Assinatura mensal fixa de **R$ 100,00/mês** via PIX, sem taxas ocultas e sem fidelidade.
 4. **Garantia Contratual Documentada**: Prazo estimado de **30 a 45 dias úteis** para conclusão ou **100% do dinheiro de volta**.
 5. **Conformidade com CDC e LGPD**: Disclaimers claros e transparentes (o serviço não promete concessão compulsória de crédito nem apaga restrições internas históricas mantidas por bancos).
-6. **Simulador Interativo de Diagnóstico**: Cálculo em tempo real do impacto da desnegativação por tipo de documento e objetivo financeiro (Cartão, Financiamento, Capital de Giro, Fornecedores).
-7. **Comparativo Visual**: Tabela lado a lado entre permanecer com restrições vs manter o nome limpo.
+6. **Comparativo Visual**: Tabela lado a lado entre permanecer com restrições vs manter o nome limpo.
 
 ---
 
