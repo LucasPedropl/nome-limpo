@@ -66,17 +66,23 @@ export function CheckoutModal({ isOpen, onClose, initialDocType = 'PF' }: Checko
   }
 
   // Passo 3 -> Passo 4 (Pagamento Confirmado e Contrato Ativado)
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = async () => {
     if (!formData) return
-    const newContract = contractService.createContract({
-      customerName: formData.customerName,
-      document: formData.document,
-      email: formData.email,
-      phone: formData.phone,
-      birthDate: formData.birthDate,
-    })
-    setContract(newContract)
-    setStep(4)
+    setIsLoading(true)
+    try {
+      const newContract = await contractService.createContract({
+        customerName: formData.customerName,
+        document: formData.document,
+        email: formData.email,
+        phone: formData.phone,
+        birthDate: formData.birthDate,
+        txid: pixCharge?.txid,
+      })
+      setContract(newContract)
+      setStep(4)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const stepTitles = {

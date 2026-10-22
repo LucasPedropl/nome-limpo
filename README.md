@@ -1,94 +1,73 @@
-# Nome Limpo Express — Landing Page & Plataforma de Contratação
+# Nome Limpo Express — Ecossistema Completo
 
-Landing page de marketing e conversão do **Projeto Nome Limpo**, desenvolvida para apresentar os benefícios do serviço de regularização cadastral perante órgãos externos de proteção ao crédito (Serasa, SPC, Boa Vista), explicar o processo operacional e conduzir o usuário até a contratação e ativação direta via PIX na tela.
-
-Inspirada no layout, padrão visual, fluxo de navegação e estratégia de alta conversão do projeto **TV Studio** (`plus-tv-casa`).
+Plataforma digital integrada para contratação e gestão do serviço de manutenção de nome limpo e regularização cadastral de CPF e CNPJ perante os órgãos externos de proteção ao crédito (Serasa Experian, SPC Brasil e Boa Vista SCPC), com modelo de assinatura mensal de R$ 100,00 via PIX e garantia documentada de 30 a 45 dias úteis (ou 100% de restituição).
 
 ---
 
-## 1. Proposta de Valor & Funcionalidades
+## 1. Estrutura do Projeto
 
-1. **Atuação em CPF & CNPJ**: Atendimento especializado para Pessoas Físicas e Empresas buscando reabilitar seu crédito.
-2. **Não Exibição de Apontamentos**: Procedimentos extrajudiciais para baixa e ocultação de restrições em consultas públicas externas.
-3. **Plano Único e Transparente**: Assinatura mensal fixa de **R$ 100,00/mês** via PIX, sem taxas ocultas e sem fidelidade.
-4. **Garantia Contratual Documentada**: Prazo estimado de **30 a 45 dias úteis** para conclusão ou **100% do dinheiro de volta**.
-5. **Conformidade com CDC e LGPD**: Disclaimers claros e transparentes (o serviço não promete concessão compulsória de crédito nem apaga restrições internas históricas mantidas por bancos).
-6. **Comparativo Visual**: Tabela lado a lado entre permanecer com restrições vs manter o nome limpo.
-
----
-
-## 2. Fluxo de Contratação Seamless (In-Screen Checkout)
-
-O fluxo ocorre 100% na tela do cliente sem redirecionamento para gateways externos:
-
-- **Etapa 1: Cadastro Inicial**
-  - Toggle PF (Pessoa Física) / PJ (Empresa)
-  - Nome completo ou Razão Social
-  - E-mail e Telefone (WhatsApp)
-  - CPF ou CNPJ com algoritmo de validação de dígitos verificadores
-  - Data de nascimento ou fundação
-- **Etapa 2: Validação via Token**
-  - Envio de código OTP de 6 dígitos para o e-mail do titular
-  - Input especializado com máscara, contagem regressiva e reenvio
-- **Etapa 3: Geração de Cobrança PIX na Própria Tela**
-  - QR Code visual em container branco de alto contraste
-  - Código Copia e Cola (padrão BACEN BR Code com cálculo real de CRC16)
-  - Temporizador regressivo de 15 minutos
-  - Polling de verificação automática a cada 2.5s
-  - Botão de simulação imediata para testes e demonstração
-- **Etapa 4: Confirmação e Ativação do Serviço**
-  - Celebração com confetes nativos em Canvas
-  - Número de protocolo e contratação gerado (ex: `NL-2026-XXXX`)
-  - Data prevista de conclusão calculada (45 dias úteis)
-  - Termos da garantia contratual e confirmação de e-mail enviado
+```
+apps/nomelimpo/
+├── api/             # Backend .NET 8 Web API + SQLite/SQL Server (Porta 5240)
+├── frontend/        # Backoffice Operacional Administrativo em React 19 + Vite (Porta 5242)
+├── landing/         # Landing Page de Marketing & Checkout Seamless em React 19 + Vite (Porta 5230)
+└── run.ps1          # Script PowerShell de inicialização simultânea dos 3 serviços
+```
 
 ---
 
-## 3. Avaliação da Integração com a Plataforma PagWeb
+## 2. Portas e Serviços Locais
 
-O relatório técnico completo para a diretoria e equipe de engenharia está disponível em:
-[`docs/avaliacao_integracao_pagweb.md`](./docs/avaliacao_integracao_pagweb.md).
-
-Principais conclusões:
-- **PIX Direto:** O frontend abstrai a geração EMV e polling em `src/services/pagwebService.ts`. Recomenda-se criar um endpoint público desacoplado no backend PagWeb (`/api/v1/public/subscriptions/pix`) sem dependência de endereço prévio.
-- **Recorrência:** Gestão via régua de notificações automáticas (D-3, D0, D+3) com PIX avulso enviado por WhatsApp e E-mail até a consolidação do Pix Automático no BACEN.
-- **Inadimplência:** Tolerância de 5 dias úteis, suspensão preventiva no D+7 e cancelamento no D+30.
+| Módulo | Stack | Porta / URL | Finalidade |
+| :--- | :--- | :--- | :--- |
+| **`api`** | .NET 8, EF Core, SQLite | [http://localhost:5240](http://localhost:5240) | Controllers de Processos, Clientes, Financeiro, Checkout Público, Webhooks e Régua de Mensageria. Documentação Swagger em `/swagger`. |
+| **`frontend`** | React 19, Vite, Tailwind | [http://localhost:5242](http://localhost:5242) | Backoffice operacional da equipe jurídica e administrativa para despacho de processos, alteração de fases, conciliação e simulação da Área do Cliente. |
+| **`landing`** | React 19, Vite, Tailwind | [http://localhost:5230](http://localhost:5230) | Página de alta conversão para captação de clientes PF/PJ, checkout em modal (Cadastro -> OTP -> PIX -> Ativação) e consulta pública da Área do Cliente. |
 
 ---
 
-## 4. Nova Logo & Identidade Visual
+## 3. Funcionalidades Implementadas (Conforme Projeto Nome Limpo.pdf)
 
-- **Conceito**: Escudo geométrico institucional com vetor ascendente de score financeiro e checkmark de regularização em branco puro, circundado por gradiente de esmeralda (`#10b981`) a azul ciano (`#0284c7`).
-- **Arquivos**:
-  - `src/components/brand/BrandLogo.tsx`: Componente React vetorizado com microinterações de hover e glow.
-  - `public/logo.svg`: Vetor standalone oficial da marca para web e mídia.
-  - `public/favicon.svg`: Ícone para abas de navegadores e bookmarks.
+1. **Funil de Contratação Seamless:**
+   - Onboarding direto na Landing Page com toggle PF/PJ, validação de token OTP por e-mail, geração de PIX EMV BACEN real com CRC16 e ativação instantânea.
+2. **Esteira de Regularização nos Birôs:**
+   - Fases: *Em Processamento* (Triagem), *Notificado aos Birôs* (Serasa/SPC/Boa Vista), *Em Análise* e *Concluído*;
+   - Histórico cronológico com autor, despacho e data;
+   - Notas internas para a equipe jurídica;
+   - Monitoramento do prazo de 30 a 45 dias úteis com controle de garantia ativa.
+3. **Gestão Financeira & Cobrança Recorrente:**
+   - Mensalidade fixa de R$ 100,00/mês;
+   - Conciliação manual e recepção de webhooks bancários (`POST /api/webhooks/pix-confirmacao`);
+   - Política de inadimplência em 4 etapas (D-3 preventivo, D+5 tolerância, D+7 suspensão e D+30 cancelamento).
+4. **Motor de Mensageria Automática & Régua Transacional:**
+   - Registro e envio de e-mails para os 8 eventos obrigatórios do documento:
+     1. Confirmação de cadastro
+     2. Validação OTP de conta
+     3. Emissão de cobrança PIX
+     4. Confirmação de pagamento
+     5. Ativação do serviço
+     6. Aviso de vencimento
+     7. Confirmação de renovação
+     8. Conclusão do processo
+5. **Área do Cliente Pública:**
+   - Acessível na Landing Page (`Área do Cliente`) e no Backoffice (`Simulação`);
+   - Consulta em tempo real usando apenas CPF/CNPJ ou número de protocolo `NL-2026-XXXX`.
 
 ---
 
-## 5. Stack Técnica
+## 4. Como Executar
 
-- **React 19** + **TypeScript 6** + **Vite 8**
-- **Tailwind CSS 3** (Paleta executiva dark financeiro com tokens HSL)
-- **Lucide Icons**
-- **Scripts Nativos**: Zero dependências pesadas, carregamento ultrarrápido (< 350kb bundle gzip).
+```powershell
+# Executar todos os serviços de uma vez:
+powershell -ExecutionPolicy Bypass -File apps/nomelimpo/run.ps1
 
----
+# Ou executar individualmente:
+# 1. API:
+cd apps/nomelimpo/api && dotnet run --launch-profile http
 
-## 6. Comandos e Execução
+# 2. Backoffice:
+cd apps/nomelimpo/frontend && npm run dev
 
-```bash
-# Na pasta apps/Sites/nome-limpo
-
-# 1. Desenvolvimento Local (Porta 5230)
-npm run dev
-
-# 2. Verificação de Tipos TypeScript (Strict)
-npm run lint
-
-# 3. Build de Produção
-npm run build
-
-# 4. Preview do Build
-npm run preview
+# 3. Landing Page:
+cd apps/nomelimpo/landing && npm run dev
 ```

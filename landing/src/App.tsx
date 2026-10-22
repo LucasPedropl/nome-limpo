@@ -11,10 +11,12 @@ import { FaqSection } from '@/components/sections/FaqSection'
 import { LegalNoticeSection } from '@/components/sections/LegalNoticeSection'
 import { CtaFinalSection } from '@/components/sections/CtaFinalSection'
 import { CheckoutModal } from '@/components/checkout/CheckoutModal'
+import { AreaClienteModal } from '@/components/portal/AreaClienteModal'
 
 export function App() {
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [checkoutDocType, setCheckoutDocType] = useState<'PF' | 'PJ'>('PF')
+  const [areaClienteOpen, setAreaClienteOpen] = useState(false)
 
   // Gerenciamento de Tema (Claro por padrão, com suporte a persistência)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -54,8 +56,12 @@ export function App() {
         Pular para o conteúdo principal
       </a>
 
-      {/* Cabeçalho Fixo com tema e navegação responsiva */}
-      <SiteHeader theme={theme} onToggleTheme={toggleTheme} />
+      {/* Cabeçalho Fixo com tema, navegação e botão para Área do Cliente */}
+      <SiteHeader
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onOpenAreaCliente={() => setAreaClienteOpen(true)}
+      />
 
       {/* Conteúdo Principal da Landing Page */}
       <main id="conteudo-principal" className="flex-1">
@@ -78,6 +84,12 @@ export function App() {
         isOpen={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         initialDocType={checkoutDocType}
+      />
+
+      {/* Modal da Área do Cliente (Consulta em Tempo Real de Processos e Birôs) */}
+      <AreaClienteModal
+        isOpen={areaClienteOpen}
+        onClose={() => setAreaClienteOpen(false)}
       />
     </div>
   )

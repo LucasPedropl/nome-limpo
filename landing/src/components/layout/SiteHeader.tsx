@@ -8,9 +8,10 @@ import { cn } from '@/lib/cn'
 interface SiteHeaderProps {
   theme: 'light' | 'dark'
   onToggleTheme: () => void
+  onOpenAreaCliente?: () => void
 }
 
-export function SiteHeader({ theme, onToggleTheme }: SiteHeaderProps) {
+export function SiteHeader({ theme, onToggleTheme, onOpenAreaCliente }: SiteHeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -54,9 +55,19 @@ export function SiteHeader({ theme, onToggleTheme }: SiteHeaderProps) {
           ))}
         </nav>
 
-        {/* Actions (Alternador de Tema + WhatsApp) */}
+        {/* Actions (Alternador de Tema + Área do Cliente + WhatsApp) */}
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+
+          {onOpenAreaCliente && (
+            <button
+              type="button"
+              onClick={onOpenAreaCliente}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-brand/40 bg-brand/10 hover:bg-brand/20 px-3 py-2 text-xs font-bold text-brand transition-colors whitespace-nowrap shadow-sm"
+            >
+              <span>Área do Cliente</span>
+            </button>
+          )}
 
           <a
             href={SALES_CONTACT_URL}

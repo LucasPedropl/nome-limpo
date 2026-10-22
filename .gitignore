@@ -1,36 +1,52 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-pnpm-debug.log*
-
 # Dependencies
-node_modules
+node_modules/
+.pnp
+.pnp.js
 
-# Build output
-dist
-dist-ssr
-*.local
+# Build Outputs
+dist/
+dist-ssr/
+build/
 *.tsbuildinfo
 
-# Editor directories and files
+# .NET / C#
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+nomelimpo.db
+nomelimpo.db-*
+*.db
+*.db-shm
+*.db-wal
+
+# Environment Variables
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs and Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS / Editor Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+!.vscode/settings.json
 
-# Environment variables
-.env
-.env.*
-!.env.example
-
-# Vercel & Playwright
-.vercel
-.playwright-mcp
-trash
+# Disposable / Temporary
+trash/
+tmp/
+temp/

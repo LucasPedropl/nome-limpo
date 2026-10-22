@@ -12,20 +12,66 @@ export interface ContractData {
   status: 'ATIVO' | 'PROCESSANDO'
 }
 
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5240'
+
 export const contractService = {
-  createContract(data: {
+  async createContract(data: {
     customerName: string
     document: string
     email: string
     phone: string
     birthDate?: string
-  }): ContractData {
+    txid?: string
+  }): Promise<ContractData> {
     const today = new Date()
-
-    // Calcula 45 dias úteis (aproximadamente 63 dias corridos)
     const targetDate = new Date()
     targetDate.setDate(targetDate.getDate() + 45)
 
+    // Tenta persistir diretamente na API do Backoffice NomeLimpo
+    try {
+      const response = await fetch(`${API_URL}/api/public/checkout/concluir`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nomeRazaoSocial: data.customerName,
+          cpfCnpj: data.document,
+          email: data.email,
+          telefone: data.phone,
+          tipoPessoa: data.document.length > 14 ? 'PJ' : 'PF',
+          dataNascimentoFundacao: data.birthDate,
+          txId: data.txid,
+        }),
+      })
+
+      if (response.ok) {
+        const apiContract = await response.json()
+        const contract: ContractData = {
+          protocolNumber: apiContract.protocolNumber,
+          contractDate: apiContract.contractDate,
+          estimatedCompletionDate: apiContract.estimatedCompletionDate,
+          customerName: apiContract.customerName,
+          document: apiContract.document,
+          email: apiContract.email,
+          phone: apiContract.phone,
+          planName: apiContract.planName,
+          planAmountFormatted: apiContract.planAmountFormatted,
+          warrantyTerms: apiContract.warrantyTerms,
+          status: apiContract.status,
+        }
+
+        try {
+          localStorage.setItem('nl_active_contract', JSON.stringify(contract))
+        } catch {
+          // ignore
+        }
+
+        return contract
+      }
+    } catch {
+      // Fallback
+    }
+
+    // Fallback local se a API estiver offline
     const randomSuffix = Math.floor(1000 + Math.random() * 9000)
     const protocolNumber = `NL-${today.getFullYear()}-${randomSuffix}`
 
