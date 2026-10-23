@@ -25,36 +25,46 @@ public class EmailService : IEmailService
         _logger = logger;
     }
 
+    // Mesmo SMTP do PagWeb e do Contratos (mail.uaipdv.com.br:587, sem SSL). Aceita também as chaves do PagWeb
+    // (EmailSettings:SMTPClient / EmailSettings:Email).
+    private string? SmtpServer => FirstSetting("EmailSettings:SmtpServer", "EmailSettings:SMTPClient");
+    private string? Username => FirstSetting("EmailSettings:Username", "EmailSettings:Email");
+
     public bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(_config["EmailSettings:SmtpServer"])
-        && _config["EmailSettings:SmtpServer"] != "localhost"
-        && !string.IsNullOrWhiteSpace(_config["EmailSettings:Username"]);
+        !string.IsNullOrWhiteSpace(SmtpServer)
+        && SmtpServer != "localhost"
+        && !string.IsNullOrWhiteSpace(Username)
+        && !string.IsNullOrWhiteSpace(_config["EmailSettings:Password"]);
+
+    private string? FirstSetting(params string[] keys) =>
+        keys.Select(k => _config[k]).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
 
     public async Task SendEmailAsync(string to, string subject, string bodyHtml)
     {
-        var smtpServer = _config["EmailSettings:SmtpServer"];
-        var portStr = _config["EmailSettings:Port"];
-        var senderEmail = _config["EmailSettings:SenderEmail"] ?? "nao-responder@nomelimpoexpress.com.br";
-        var senderName = _config["EmailSettings:SenderName"] ?? "Nome Limpo Express";
-        var username = _config["EmailSettings:Username"];
+        var smtpServer = SmtpServer;
+        var username = Username;
         var password = _config["EmailSettings:Password"];
+        // O servidor recusa remetente diferente da conta autenticada: por padrão envia como a própria conta
+        var senderEmail = FirstSetting("EmailSettings:SenderEmail") ?? username;
+        var senderName = _config["EmailSettings:SenderName"] ?? "Nome Limpo Express";
 
-        int port = int.TryParse(portStr, out var p) ? p : 587;
+        int port = int.TryParse(_config["EmailSettings:Port"], out var p) ? p : 587;
+        // mail.uaipdv.com.br não oferece STARTTLS na 587 (idêntico ao PagWeb): SSL desligado salvo configuração explícita
+        bool enableSsl = bool.TryParse(_config["EmailSettings:EnableSsl"], out var ssl) && ssl;
 
-        // Se houver servidor SMTP real configurado
-        if (!string.IsNullOrWhiteSpace(smtpServer) && smtpServer != "localhost" && !string.IsNullOrWhiteSpace(username))
+        if (IsConfigured)
         {
             try
             {
                 using var client = new SmtpClient(smtpServer, port)
                 {
-                    EnableSsl = port != 25,
+                    EnableSsl = enableSsl,
                     Credentials = new NetworkCredential(username, password)
                 };
 
                 using var msg = new MailMessage
                 {
-                    From = new MailAddress(senderEmail, senderName),
+                    From = new MailAddress(senderEmail!, senderName),
                     Subject = subject,
                     Body = bodyHtml,
                     IsBodyHtml = true
