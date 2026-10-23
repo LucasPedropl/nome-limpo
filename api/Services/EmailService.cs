@@ -58,6 +58,8 @@ public class EmailService : IEmailService
             {
                 using var client = new SmtpClient(smtpServer, port)
                 {
+                    // Padrão do .NET é 100s: com a porta bloqueada (Render free bloqueia a 587) o checkout travaria
+                    Timeout = 15000,
                     EnableSsl = enableSsl,
                     Credentials = new NetworkCredential(username, password)
                 };
