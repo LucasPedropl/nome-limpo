@@ -8,10 +8,9 @@ interface Step4Props {
   contract: ContractData
   onClose: () => void
   onOpenPortal?: () => void
-  redirectingToSystem?: boolean // A landing redireciona para o sistema logo após esta tela
 }
 
-export function Step4SuccessConfirmation({ contract, onClose, onOpenPortal, redirectingToSystem }: Step4Props) {
+export function Step4SuccessConfirmation({ contract, onClose, onOpenPortal }: Step4Props) {
   const whatsappUrl =
     `https://wa.me/${SALES_WHATSAPP_RAW}?text=` +
     encodeURIComponent(
@@ -37,11 +36,6 @@ export function Step4SuccessConfirmation({ contract, onClose, onOpenPortal, redi
         <p className="mt-1 text-sm text-cream-dim">
           Seu processo de regularização cadastral já está em andamento nos órgãos competentes.
         </p>
-        {redirectingToSystem && (
-          <p role="status" className="mt-3 text-sm font-bold text-brand-light">
-            Redirecionando para o sistema...
-          </p>
-        )}
       </div>
 
       {/* Cartão de Resumo do Contrato */}

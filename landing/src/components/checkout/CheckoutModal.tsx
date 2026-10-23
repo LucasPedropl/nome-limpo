@@ -18,10 +18,6 @@ import { tokenService } from '@/services/tokenService'
 // A API precisa estar com Checkout__ExigirVerificacaoEmail=false, senão recusa o PIX sem o comprovante.
 const EXIGIR_VERIFICACAO_EMAIL = import.meta.env.VITE_CHECKOUT_EXIGIR_EMAIL !== 'false'
 
-// Com VITE_SISTEMA_URL definida, o pagamento confirmado leva o cliente ao sistema (frontend) depois da confirmação
-const SISTEMA_URL = import.meta.env.VITE_SISTEMA_URL?.trim() || ''
-const REDIRECT_DELAY_MS = 3000
-
 interface CheckoutModalProps {
   isOpen: boolean
   onClose: () => void
@@ -145,15 +141,7 @@ export function CheckoutModal({
       }
 
       setStep(4)
-      if (SISTEMA_URL) {
-        setTimeout(() => window.location.assign(SISTEMA_URL), REDIRECT_DELAY_MS)
-      }
     } catch (err) {
-      if (SISTEMA_URL) {
-        // O pagamento já foi confirmado pela Bixs: mesmo sem o resumo do contrato, segue para o sistema
-        window.location.assign(SISTEMA_URL)
-        return
-      }
       setErrorMessage(
         err instanceof Error ? err.message : 'Não foi possível concluir sua assinatura agora. Tente novamente em alguns minutos.'
       )
@@ -257,7 +245,6 @@ export function CheckoutModal({
       {step === 4 && contract && (
         <Step4SuccessConfirmation
           contract={contract}
-          redirectingToSystem={Boolean(SISTEMA_URL)}
           onClose={handleClose}
           onOpenPortal={handleOpenSubscriberPortal}
         />
