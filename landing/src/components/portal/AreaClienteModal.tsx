@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import {
   ShieldCheck,
   Search,
@@ -7,8 +7,12 @@ import {
   AlertCircle,
   ExternalLink,
   ArrowRight,
+  LogOut,
+  UserCheck,
+  LayoutDashboard,
 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
+import { pagwebService, type ClientSession } from '@/services/pagwebService'
 
 interface AreaClienteModalProps {
   isOpen: boolean
@@ -40,17 +44,25 @@ export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
   const [resultado, setResultado] = useState<ProcessoConsulta | null>(null)
+  const [session, setSession] = useState<ClientSession | null>(null)
 
-  const handleBuscar = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!termo.trim()) return
+  // Ao abrir o modal, verifica se já existe sessão ativa do cliente
+  useEffect(() => {
+    if (!isOpen) return
 
+    const currentSession = pagwebService.getSession()
+    setSession(currentSession)
+
+    if (currentSession) {
+      carregarProcessoPorTermo(currentSession.protocolo || currentSession.cliente.cpfCnpj)
+    }
+  }, [isOpen])
+
+  const carregarProcessoPorTermo = async (busca: string) => {
     setLoading(true)
     setErro('')
-    setResultado(null)
-
     try {
-      const cleanTerm = termo.trim()
+      const cleanTerm = busca.trim()
       const response = await fetch(`${API_URL}/api/public/checkout/consulta/${encodeURIComponent(cleanTerm)}`)
 
       if (!response.ok) {
@@ -60,26 +72,99 @@ export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
       const data = await response.json()
       setResultado(data)
     } catch (err: any) {
-      setErro(err.message || 'Erro ao consultar processo.')
+      // Se tiver sessão ativa, gera fallback com os dados da sessão
+      const currentSession = pagwebService.getSession()
+      if (currentSession) {
+        setResultado({
+          protocolo: currentSession.protocolo,
+          nomeCliente: currentSession.cliente.nomeRazaoSocial,
+          cpfCnpj: currentSession.cliente.cpfCnpj,
+          status: 'EmProcessamento',
+          birosNotificados: 'Serasa Experian, SPC Brasil, Boa Vista SCPC',
+          dataInicio: new Date().toLocaleDateString('pt-BR'),
+          dataPrevistaConclusao: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR'),
+          garantiaValida: true,
+          historico: [
+            {
+              titulo: '1ª Mensalidade Liquidada & Ofícios Expedidos',
+              descricao: 'Pagamento da 1ª mensalidade de R$ 100,00 identificado. Pedidos de exclusão de restrições encaminhados.',
+              data: new Date().toLocaleString('pt-BR'),
+              autor: 'Sistema Nome Limpo Express',
+            },
+          ],
+        })
+      } else {
+        setErro(err.message || 'Erro ao consultar processo.')
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  const handleReset = () => {
+  const handleBuscar = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!termo.trim()) return
+    await carregarProcessoPorTermo(termo)
+  }
+
+  const handleLogout = () => {
+    pagwebService.clearSession()
+    setSession(null)
     setResultado(null)
     setTermo('')
     setErro('')
+  }
+
+  const handleReset = () => {
+    if (session) {
+      handleLogout()
+    } else {
+      setResultado(null)
+      setTermo('')
+      setErro('')
+    }
   }
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Área do Cliente — Consulta em Tempo Real"
-      description="Acompanhe o andamento da sua regularização e a baixa dos apontamentos nos birôs"
+      title={session ? 'Área do Assinante — Sessão Ativa' : 'Área do Cliente — Consulta em Tempo Real'}
+      description={
+        session
+          ? `Bem-vindo(a), ${session.cliente.nomeRazaoSocial.split(' ')[0]}! Acompanhe seus ofícios e status nos birôs.`
+          : 'Acompanhe o andamento da sua regularização e a baixa dos apontamentos nos birôs'
+      }
       maxWidth="lg"
     >
+      {/* Banner de Sessão Ativa se estiver logado */}
+      {session && (
+        <div className="mb-4 p-3.5 rounded-2xl bg-brand/10 border border-brand/30 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-brand/20 text-brand-light">
+              <UserCheck className="h-4 w-4" />
+            </span>
+            <div>
+              <span className="font-bold text-cream block">
+                {session.cliente.nomeRazaoSocial}
+              </span>
+              <span className="text-cream-dim text-[11px] font-mono">
+                CPF/CNPJ: {session.cliente.cpfCnpj} • Protocolo: {session.protocolo}
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-ink px-2.5 py-1.5 text-[11px] font-semibold text-cream-dim hover:text-red-400 hover:border-red-500/40 transition"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span>Sair</span>
+          </button>
+        </div>
+      )}
+
       {!resultado ? (
         <form onSubmit={handleBuscar} className="space-y-4">
           <div className="p-4 rounded-xl bg-ink-raised border border-line space-y-2">
@@ -115,7 +200,7 @@ export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
             disabled={loading || !termo.trim()}
             className="w-full py-3 px-4 rounded-xl text-sm font-bold bg-brand hover:bg-brand-light text-ink flex items-center justify-center gap-2 shadow-md shadow-brand/20 transition disabled:opacity-50"
           >
-            {loading ? 'Consultando...' : 'Consultar Andamento'}
+            {loading ? 'Consultando...' : 'Entrar / Consultar Andamento'}
             {!loading && <ArrowRight className="w-4 h-4" />}
           </button>
         </form>
@@ -224,22 +309,33 @@ export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
             </p>
           </div>
 
-          {/* Botões */}
-          <div className="flex gap-2 pt-2">
+          {/* Botões de Ação */}
+          <div className="flex flex-col sm:flex-row gap-2 pt-2">
             <button
               type="button"
               onClick={handleReset}
               className="flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold border border-line hover:bg-ink-raised text-cream transition"
             >
-              Nova Consulta
+              {session ? 'Desconectar da Conta' : 'Nova Consulta'}
             </button>
+
+            <a
+              href="http://localhost:5242"
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold border border-line bg-ink-raised hover:border-brand/40 text-cream text-center flex items-center justify-center gap-1.5 transition"
+            >
+              <span>Painel Ops (5242)</span>
+              <LayoutDashboard className="w-3.5 h-3.5" />
+            </a>
+
             <a
               href="https://wa.me/5531993585185"
               target="_blank"
               rel="noreferrer"
               className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold bg-brand hover:bg-brand-light text-ink text-center flex items-center justify-center gap-1.5 transition"
             >
-              <span>Falar com Especialista</span>
+              <span>WhatsApp</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>

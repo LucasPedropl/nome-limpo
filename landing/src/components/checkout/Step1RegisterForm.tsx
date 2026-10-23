@@ -222,7 +222,7 @@ export function Step1RegisterForm({ initialDocType = 'PF', onSubmit, isLoading }
           size="lg"
           className="w-full justify-center gap-2.5 py-4 text-base font-bold shadow-lg"
         >
-          <span>Avançar para Validação do Token</span>
+          <span>Gerar PIX da 1ª Mensalidade (R$ 100,00)</span>
           <ArrowRight className="h-5 w-5" />
         </Button>
       </div>

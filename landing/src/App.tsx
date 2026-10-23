@@ -79,10 +79,14 @@ export function App() {
       <SiteFooter />
       <FloatingWhatsAppButton />
 
-      {/* Modal do Fluxo de Contratação Seamless (Cadastro -> Token -> PIX -> Ativação) */}
+      {/* Modal do Fluxo de Contratação Seamless (Cadastro -> PIX Direto -> Ativação & Login) */}
       <CheckoutModal
         isOpen={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
+        onOpenAreaCliente={() => {
+          setCheckoutOpen(false)
+          setAreaClienteOpen(true)
+        }}
         initialDocType={checkoutDocType}
       />
 

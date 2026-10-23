@@ -45,9 +45,14 @@ builder.Services.AddScoped<PasswordService>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<PixService>();
+builder.Services.AddHttpClient<IBixsService, BixsService>();
 
 // 4. JWT Authentication
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "nomelimpo-secret-jwt-key-32-chars-dev-2026";
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrWhiteSpace(jwtKey))
+{
+    throw new InvalidOperationException("Configuração 'Jwt:Key' ausente. Defina via dotnet user-secrets (dev) ou variável de ambiente Jwt__Key.");
+}
 var key = Encoding.UTF8.GetBytes(jwtKey);
 
 builder.Services.AddAuthentication(options =>

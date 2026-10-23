@@ -14,13 +14,40 @@ interface SiteHeaderProps {
 export function SiteHeader({ theme, onToggleTheme, onOpenAreaCliente }: SiteHeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [session, setSession] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('nl_client_session')
+        return raw ? JSON.parse(raw) : null
+      } catch {
+        return null
+      }
+    }
+    return null
+  })
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20)
     }
+    const updateSession = () => {
+      try {
+        const raw = localStorage.getItem('nl_client_session')
+        setSession(raw ? JSON.parse(raw) : null)
+      } catch {
+        setSession(null)
+      }
+    }
+
     window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
+    window.addEventListener('nl_session_changed', updateSession)
+    window.addEventListener('storage', updateSession)
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('nl_session_changed', updateSession)
+      window.removeEventListener('storage', updateSession)
+    }
   }, [])
 
   return (
@@ -63,9 +90,18 @@ export function SiteHeader({ theme, onToggleTheme, onOpenAreaCliente }: SiteHead
             <button
               type="button"
               onClick={onOpenAreaCliente}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-brand/40 bg-brand/10 hover:bg-brand/20 px-3 py-2 text-xs font-bold text-brand transition-colors whitespace-nowrap shadow-sm"
+              className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition-colors whitespace-nowrap shadow-sm ${
+                session
+                  ? 'border-brand/50 bg-brand/15 hover:bg-brand/25 text-brand-light'
+                  : 'border-brand/40 bg-brand/10 hover:bg-brand/20 text-brand'
+              }`}
             >
-              <span>Área do Cliente</span>
+              {session && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}
+              <span>
+                {session
+                  ? `Meu Painel (${session.cliente?.nomeRazaoSocial?.split(' ')[0] || 'Assinante'})`
+                  : 'Área do Cliente'}
+              </span>
             </button>
           )}
 

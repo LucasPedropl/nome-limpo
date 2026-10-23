@@ -72,14 +72,22 @@ public class Cobranca
     public string AssinaturaId { get; set; } = string.Empty;
     public string ClienteId { get; set; } = string.Empty;
     public decimal Valor { get; set; } = 100.00m;
+    public int AmountCents { get; set; } = 10000;
     public string ReferenciaMes { get; set; } = DateTime.UtcNow.ToString("yyyy-MM");
     public string Status { get; set; } = "Pendente"; // "Pendente", "Pago", "Atrasado", "Cancelado"
     public string TxId { get; set; } = string.Empty;
     public string PixCopiaECola { get; set; } = string.Empty;
+    public string? PixEmv { get; set; }
     public string QrCodeUrl { get; set; } = string.Empty;
+    public string? CoraInvoiceId { get; set; }
+    public string? ExternalCode { get; set; }
+    public string? BankSlipUrl { get; set; }
+    public string? Barcode { get; set; }
+    public string? DigitableLine { get; set; }
     public DateTime DataVencimento { get; set; } = DateTime.UtcNow.AddDays(3);
     public DateTime? DataPagamento { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public Assinatura? Assinatura { get; set; }
 }

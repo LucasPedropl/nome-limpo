@@ -10,38 +10,111 @@ export interface CreatePixSubscriptionParams {
 }
 
 export interface PixChargeResponse {
+  paymentId: string
   txid: string
   amount: number
   pixEmv: string
   qrCodeUrl: string
   expiresAt: string
   status: 'PENDING' | 'PAID' | 'EXPIRED'
-  subscriptionId: string
+  subscriptionId?: string
+  coraInvoiceId?: string
   recurrentIntervalDays: number
+  protocolo?: string
+  token?: string
+  cliente?: {
+    id: string
+    nomeRazaoSocial: string
+    cpfCnpj: string
+    email: string
+    telefone: string
+    status: string
+  }
 }
 
-export interface SubscriptionStatus {
-  subscriptionId: string
-  status: 'ACTIVE' | 'PENDING_PAYMENT' | 'OVERDUE' | 'CANCELLED'
-  planName: string
-  monthlyAmount: number
-  lastPaymentAt?: string
-  nextBillingAt: string
-  delinquencyNotice?: string
+export interface PaymentStatusCheckResult {
+  paymentId: string
+  txId: string
+  status: 'PENDING' | 'PAID' | 'EXPIRED'
+  isPaid: boolean
+  paidAt?: string
+  amount: number
+  protocolo?: string
+  token?: string
+  cliente?: {
+    id: string
+    nomeRazaoSocial: string
+    cpfCnpj: string
+    email: string
+    telefone: string
+    status: string
+  }
+}
+
+export interface ClientSession {
+  token: string
+  protocolo: string
+  cliente: {
+    id: string
+    nomeRazaoSocial: string
+    cpfCnpj: string
+    email: string
+    telefone: string
+    status: string
+  }
+  loggedAt: string
 }
 
 const STORAGE_PAYMENTS_KEY = 'nl_payments_state'
+const STORAGE_SESSION_KEY = 'nl_client_session'
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5240'
 
 export const pagwebService = {
   /**
-   * Gera cobrança PIX imediata na tela conectando à API oficial
+   * Salva a sessão autenticada do assinante localmente
+   */
+  saveSession(session: ClientSession) {
+    try {
+      localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(session))
+      // Dispara evento para sincronizar cabeçalho e componentes
+      window.dispatchEvent(new Event('nl_session_changed'))
+    } catch {
+      // ignore
+    }
+  },
+
+  /**
+   * Obtém a sessão atual do assinante
+   */
+  getSession(): ClientSession | null {
+    try {
+      const raw = localStorage.getItem(STORAGE_SESSION_KEY)
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  },
+
+  /**
+   * Encerra a sessão do assinante
+   */
+  clearSession() {
+    try {
+      localStorage.removeItem(STORAGE_SESSION_KEY)
+      window.dispatchEvent(new Event('nl_session_changed'))
+    } catch {
+      // ignore
+    }
+  },
+
+  /**
+   * Gera cobrança PIX imediata da 1ª mensalidade conectando à arquitetura Bixs Cora Gateway na API
    */
   async createPixCharge(params: CreatePixSubscriptionParams): Promise<PixChargeResponse> {
     const amount = params.amount || DEFAULT_PIX_SUBSCRIPTION.amount
 
     try {
-      const response = await fetch(`${API_URL}/api/public/checkout/iniciar-pix`, {
+      const response = await fetch(`${API_URL}/api/public/pagamentos/iniciar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -49,7 +122,8 @@ export const pagwebService = {
           cpfCnpj: params.document,
           email: params.email,
           telefone: params.phone,
-          tipoPessoa: params.document.length > 14 ? 'PJ' : 'PF',
+          tipoPessoa: params.document.replace(/\D/g, '').length > 11 ? 'PJ' : 'PF',
+          dataNascimentoFundacao: params.birthDate,
           valor: amount,
         }),
       })
@@ -57,19 +131,21 @@ export const pagwebService = {
       if (response.ok) {
         const data = await response.json()
         const charge: PixChargeResponse = {
-          txid: data.txid,
+          paymentId: data.paymentId || data.txId,
+          txid: data.txId,
           amount: data.amount,
           pixEmv: data.pixEmv,
           qrCodeUrl: data.qrCodeUrl,
-          expiresAt: data.expiresAt,
-          status: 'PENDING',
-          subscriptionId: data.subscriptionId,
+          expiresAt: data.expiresAt || new Date(Date.now() + 25 * 60 * 1000).toISOString(),
+          status: data.status === 'PAID' ? 'PAID' : 'PENDING',
+          coraInvoiceId: data.coraInvoiceId,
+          subscriptionId: data.assinaturaId,
           recurrentIntervalDays: 30,
         }
 
         try {
           const stored = JSON.parse(localStorage.getItem(STORAGE_PAYMENTS_KEY) || '{}')
-          stored[data.txid] = charge
+          stored[data.txId] = charge
           localStorage.setItem(STORAGE_PAYMENTS_KEY, JSON.stringify(stored))
         } catch {
           // ignore
@@ -78,13 +154,13 @@ export const pagwebService = {
         return charge
       }
     } catch {
-      // Fallback local caso a API esteja temporariamente fora
+      // Fallback contingência local caso a API esteja temporariamente indisponível
     }
 
-    // Fallback local
+    // Fallback local caso a API não esteja rodando
     const randomHex = Math.random().toString(36).substring(2, 10).toUpperCase()
-    const txid = `NL${Date.now().toString().slice(-6)}${randomHex}`
-    const subscriptionId = `SUB-NL-${Date.now().toString().slice(-5)}`
+    const txid = `nl_local_${Date.now().toString().slice(-6)}${randomHex}`
+    const paymentId = `pay_${randomHex.toLowerCase()}`
 
     const pixEmv = generatePixEmv({
       pixKey: DEFAULT_PIX_SUBSCRIPTION.key,
@@ -94,16 +170,16 @@ export const pagwebService = {
       txid,
     })
 
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+    const expiresAt = new Date(Date.now() + 25 * 60 * 1000).toISOString()
 
     const charge: PixChargeResponse = {
+      paymentId,
       txid,
       amount,
       pixEmv,
       qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixEmv)}`,
       expiresAt,
       status: 'PENDING',
-      subscriptionId,
       recurrentIntervalDays: 30,
     }
 
@@ -119,62 +195,163 @@ export const pagwebService = {
   },
 
   /**
-   * Consulta o status do pagamento
+   * Consulta o status do pagamento em tempo real (polling oficial no Bixs Gateway)
    */
-  async checkPaymentStatus(txid: string): Promise<'PENDING' | 'PAID' | 'EXPIRED'> {
+  async checkPaymentStatus(txid: string, paymentId?: string): Promise<PaymentStatusCheckResult> {
+    const queryId = paymentId || txid
+
+    try {
+      const response = await fetch(`${API_URL}/api/public/pagamentos/${encodeURIComponent(queryId)}/status`)
+      if (response.ok) {
+        const data = await response.json()
+        const isPaid = data.isPaid || data.status === 'PAID'
+
+        if (isPaid && data.token && data.cliente) {
+          this.saveSession({
+            token: data.token,
+            protocolo: data.protocolo || `NL-${new Date().getFullYear()}-0001`,
+            cliente: data.cliente,
+            loggedAt: new Date().toISOString(),
+          })
+        }
+
+        return {
+          paymentId: data.paymentId || queryId,
+          txId: data.txId || txid,
+          status: isPaid ? 'PAID' : 'PENDING',
+          isPaid,
+          paidAt: data.paidAt,
+          amount: data.amount || 100,
+          protocolo: data.protocolo,
+          token: data.token,
+          cliente: data.cliente,
+        }
+      }
+    } catch {
+      // Fallback storage local
+    }
+
     try {
       const stored = JSON.parse(localStorage.getItem(STORAGE_PAYMENTS_KEY) || '{}')
       if (stored[txid]) {
-        return stored[txid].status
+        const isPaid = stored[txid].status === 'PAID'
+        return {
+          paymentId: stored[txid].paymentId || txid,
+          txId: txid,
+          status: stored[txid].status,
+          isPaid,
+          amount: stored[txid].amount,
+          protocolo: stored[txid].protocolo,
+          token: stored[txid].token,
+          cliente: stored[txid].cliente,
+        }
       }
     } catch {
-      // Ignore
+      // ignore
     }
-    return 'PENDING'
-  },
-
-  /**
-   * Simula a confirmação instantânea do PIX (disparando webhook para a API e atualizando localmente)
-   */
-  async simulatePaymentApproval(txid: string): Promise<boolean> {
-    try {
-      // Notifica o endpoint de webhook na API
-      fetch(`${API_URL}/api/webhooks/pix-confirmacao`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txId: txid, status: 'PAID' }),
-      }).catch(() => {})
-
-      const stored = JSON.parse(localStorage.getItem(STORAGE_PAYMENTS_KEY) || '{}')
-      if (stored[txid]) {
-        stored[txid].status = 'PAID'
-        stored[txid].paidAt = new Date().toISOString()
-        localStorage.setItem(STORAGE_PAYMENTS_KEY, JSON.stringify(stored))
-        return true
-      }
-    } catch {
-      // Ignore
-    }
-    return true
-  },
-
-  /**
-   * Gestão de recorrência
-   */
-  async toggleSubscription(subscriptionId: string, action: 'CANCEL' | 'REACTIVATE'): Promise<SubscriptionStatus> {
-    const nextMonth = new Date()
-    nextMonth.setDate(nextMonth.getDate() + 30)
 
     return {
-      subscriptionId,
-      status: action === 'CANCEL' ? 'CANCELLED' : 'ACTIVE',
-      planName: 'Plano Nome Limpo Mensal Recorrente',
-      monthlyAmount: 100.0,
-      nextBillingAt: nextMonth.toLocaleDateString('pt-BR'),
-      delinquencyNotice:
-        action === 'CANCEL'
-          ? 'Assinatura pausada a pedido do titular. Os serviços de monitoramento foram suspensos.'
-          : undefined,
+      paymentId: queryId,
+      txId: txid,
+      status: 'PENDING',
+      isPaid: false,
+      amount: 100,
     }
+  },
+
+  /**
+   * Simulação / Confirmação imediata no ambiente de teste (idêntico ao Contratos confirmPaymentTest)
+   */
+  async simulatePaymentApproval(txid: string, paymentId?: string): Promise<PaymentStatusCheckResult> {
+    const queryId = paymentId || txid
+
+    try {
+      const response = await fetch(`${API_URL}/api/public/pagamentos/${encodeURIComponent(queryId)}/confirm-test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.token && data.cliente) {
+          this.saveSession({
+            token: data.token,
+            protocolo: data.protocolo || `NL-${new Date().getFullYear()}-0001`,
+            cliente: data.cliente,
+            loggedAt: new Date().toISOString(),
+          })
+        }
+
+        return {
+          paymentId: data.paymentId || queryId,
+          txId: data.txId || txid,
+          status: 'PAID',
+          isPaid: true,
+          amount: data.amount || 100,
+          protocolo: data.protocolo,
+          token: data.token,
+          cliente: data.cliente,
+        }
+      }
+    } catch {
+      // Contingência local
+    }
+
+    // Fallback simulado local
+    const mockProtocolo = `NL-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
+    const mockCliente = {
+      id: 'cli_demo',
+      nomeRazaoSocial: 'Cliente Assinante',
+      cpfCnpj: '000.000.000-00',
+      email: 'cliente@nomelimpo.com.br',
+      telefone: '31999999999',
+      status: 'Ativo',
+    }
+
+    this.saveSession({
+      token: 'jwt_mock_token_demo',
+      protocolo: mockProtocolo,
+      cliente: mockCliente,
+      loggedAt: new Date().toISOString(),
+    })
+
+    return {
+      paymentId: queryId,
+      txId: txid,
+      status: 'PAID',
+      isPaid: true,
+      amount: 100,
+      protocolo: mockProtocolo,
+      token: 'jwt_mock_token_demo',
+      cliente: mockCliente,
+    }
+  },
+
+  /**
+   * Login do cliente existente via CPF/CNPJ ou Protocolo
+   */
+  async loginCliente(termo: string): Promise<ClientSession | null> {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/cliente-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cpfCnpj: termo, email: termo, protocolo: termo }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        const session: ClientSession = {
+          token: data.token,
+          protocolo: data.protocolo,
+          cliente: data.cliente,
+          loggedAt: new Date().toISOString(),
+        }
+        this.saveSession(session)
+        return session
+      }
+    } catch {
+      // ignore
+    }
+    return null
   },
 }

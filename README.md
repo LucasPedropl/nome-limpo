@@ -71,3 +71,6 @@ cd apps/nomelimpo/frontend && npm run dev
 # 3. Landing Page:
 cd apps/nomelimpo/landing && npm run dev
 ```
+
+> **Credenciais da API**: nunca ficam no `appsettings*.json` (lá os campos estão vazios). Em dev, defina-as com `dotnet user-secrets set "<chave>" "<valor>"` dentro de `api/`: `Jwt:Key`, `Bixs:Email`, `Bixs:Password`, `Bixs:ApiKey`, `Bixs:Mac`, `Bixs:Source` (e os aliases `BixAPI:Email`, `BixAPI:Password`, `BixAPI:API-Key`).
+> Em produção, use variáveis de ambiente (`Jwt__Key`, `Bixs__ApiKey`, ...). Sem `Jwt:Key` a API não sobe; sem as credenciais Bixs o checkout PIX falha com erro explícito.
