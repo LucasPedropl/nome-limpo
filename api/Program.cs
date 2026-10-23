@@ -14,26 +14,58 @@ var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 
 // 1. Banco de Dados: SQL Server (se configurado) ou SQLite persistente em disco (nomelimpo.db)
 var sqlConn = builder.Configuration.GetConnectionString("NomeLimpo");
+string dbProviderInfo;
 if (!string.IsNullOrWhiteSpace(sqlConn))
 {
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseSqlServer(sqlConn));
+    dbProviderInfo = "SQL Server (ConnectionStrings:NomeLimpo)";
 }
 else
 {
-    // SQLite persistente localmente para garantir retenção de dados entre restarts
-    var dbPath = Path.Combine(AppContext.BaseDirectory, "nomelimpo.db");
+    // SQLite persistente; Database:SqlitePath permite apontar para um disco montado (ex.: /var/data/nomelimpo.db)
+    var dbPath = builder.Configuration["Database:SqlitePath"];
+    if (string.IsNullOrWhiteSpace(dbPath))
+    {
+        dbPath = Path.Combine(AppContext.BaseDirectory, "nomelimpo.db");
+    }
+    var dbDir = Path.GetDirectoryName(Path.GetFullPath(dbPath));
+    if (!string.IsNullOrEmpty(dbDir))
+    {
+        Directory.CreateDirectory(dbDir);
+    }
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseSqlite($"Data Source={dbPath}"));
+    dbProviderInfo = $"SQLite ({dbPath})";
 }
 
-// 2. CORS amplo para suportar o frontend backoffice (5242) e a landing page (5230)
+// 2. CORS: origens via Cors:Origins (array ou lista separada por vírgula); defaults cobrem dev e Vercel
+var defaultCorsOrigins = new[]
+{
+    "http://localhost:5230",
+    "http://localhost:5231",
+    "http://localhost:5242",
+    "https://nome-limpo.vercel.app",
+    "https://nome-limpo2.vercel.app"
+};
+var corsSection = builder.Configuration.GetSection("Cors:Origins");
+var corsOrigins = (corsSection.GetChildren().Any()
+        ? corsSection.GetChildren().Select(c => c.Value)
+        : (corsSection.Value ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    .Where(o => !string.IsNullOrWhiteSpace(o))
+    .Select(o => o!.Trim().TrimEnd('/'))
+    .ToArray();
+if (corsOrigins.Length == 0)
+{
+    corsOrigins = defaultCorsOrigins;
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: MyAllowSpecificOrigins,
         policy =>
         {
-            policy.SetIsOriginAllowed(origin => true)
+            policy.WithOrigins(corsOrigins)
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
@@ -113,6 +145,9 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+app.Logger.LogInformation("Banco de dados: {Provider}", dbProviderInfo);
+app.Logger.LogInformation("CORS liberado para: {Origins}", string.Join(", ", corsOrigins));
 
 // Inicialização e Seed do Banco
 using (var scope = app.Services.CreateScope())
@@ -340,13 +375,16 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Configurações do pipeline
-app.UseSwagger();
-app.UseSwaggerUI(c =>
+// Configurações do pipeline (Swagger apenas em Development)
+if (app.Environment.IsDevelopment())
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Nome Limpo API V1");
-    c.RoutePrefix = "swagger";
-});
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Nome Limpo API V1");
+        c.RoutePrefix = "swagger";
+    });
+}
 
 app.UseCors(MyAllowSpecificOrigins);
 
@@ -360,7 +398,7 @@ app.MapGet("/", () => Results.Ok(new
     service = "Nome Limpo Express — Backoffice & Checkout API",
     status = "online",
     version = "1.0.0",
-    docs = "/swagger"
+    docs = app.Environment.IsDevelopment() ? "/swagger" : null
 }));
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));

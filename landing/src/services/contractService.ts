@@ -68,10 +68,16 @@ export const contractService = {
         return contract
       }
     } catch {
-      // Fallback
+      // Fallback (apenas em desenvolvimento)
     }
 
-    // Fallback local se a API estiver offline
+    if (!import.meta.env.DEV) {
+      throw new Error(
+        'Pagamento recebido, mas não conseguimos carregar o seu contrato agora. Consulte a Área do Cliente com seu CPF/CNPJ em alguns minutos.'
+      )
+    }
+
+    // Fallback local se a API estiver offline (apenas em desenvolvimento)
     const randomSuffix = Math.floor(1000 + Math.random() * 9000)
     const protocolNumber = `NL-${today.getFullYear()}-${randomSuffix}`
 

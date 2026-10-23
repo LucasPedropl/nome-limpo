@@ -69,6 +69,22 @@ const STORAGE_PAYMENTS_KEY = 'nl_payments_state'
 const STORAGE_SESSION_KEY = 'nl_client_session'
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5240'
 
+// Contingência local (PIX/pagamento simulado) só existe em desenvolvimento; em produção a falha chega ao usuário
+const LOCAL_FALLBACK_ENABLED = import.meta.env.DEV
+export const PIX_UNAVAILABLE_MESSAGE = 'Não foi possível gerar o Pix agora. Tente novamente em alguns minutos.'
+
+// Erro com mensagem pronta para exibir ao usuário
+export class ApiError extends Error {}
+
+async function readApiError(response: Response): Promise<string | undefined> {
+  try {
+    const data = await response.json()
+    return data?.error || data?.message
+  } catch {
+    return undefined
+  }
+}
+
 export const pagwebService = {
   /**
    * Salva a sessão autenticada do assinante localmente
@@ -153,11 +169,19 @@ export const pagwebService = {
 
         return charge
       }
-    } catch {
-      // Fallback contingência local caso a API esteja temporariamente indisponível
+
+      if (!LOCAL_FALLBACK_ENABLED) {
+        const apiError = response.status < 500 ? await readApiError(response) : undefined
+        throw new ApiError(apiError || PIX_UNAVAILABLE_MESSAGE)
+      }
+    } catch (err) {
+      // Fallback contingência local apenas em desenvolvimento
+      if (!LOCAL_FALLBACK_ENABLED) {
+        throw err instanceof ApiError ? err : new ApiError(PIX_UNAVAILABLE_MESSAGE)
+      }
     }
 
-    // Fallback local caso a API não esteja rodando
+    // Fallback local caso a API não esteja rodando (apenas em desenvolvimento)
     const randomHex = Math.random().toString(36).substring(2, 10).toUpperCase()
     const txid = `nl_local_${Date.now().toString().slice(-6)}${randomHex}`
     const paymentId = `pay_${randomHex.toLowerCase()}`
@@ -228,7 +252,11 @@ export const pagwebService = {
         }
       }
     } catch {
-      // Fallback storage local
+      // Fallback storage local (apenas em desenvolvimento)
+    }
+
+    if (!LOCAL_FALLBACK_ENABLED) {
+      throw new ApiError('Não foi possível consultar o pagamento agora. Tente novamente em alguns instantes.')
     }
 
     try {
@@ -264,6 +292,10 @@ export const pagwebService = {
    */
   async simulatePaymentApproval(txid: string, paymentId?: string): Promise<PaymentStatusCheckResult> {
     const queryId = paymentId || txid
+
+    if (!LOCAL_FALLBACK_ENABLED) {
+      throw new ApiError('Confirmação de teste indisponível em produção.')
+    }
 
     try {
       const response = await fetch(`${API_URL}/api/public/pagamentos/${encodeURIComponent(queryId)}/confirm-test`, {

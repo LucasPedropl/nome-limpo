@@ -36,17 +36,20 @@ public class CheckoutController : ControllerBase
     private readonly IEmailService _emailService;
     private readonly PixService _pixService;
     private readonly IConfiguration _config;
+    private readonly IWebHostEnvironment _env;
 
     public CheckoutController(
         AppDbContext db,
         IEmailService emailService,
         PixService pixService,
-        IConfiguration config)
+        IConfiguration config,
+        IWebHostEnvironment env)
     {
         _db = db;
         _emailService = emailService;
         _pixService = pixService;
         _config = config;
+        _env = env;
     }
 
     [HttpPost("solicitar-otp")]
@@ -69,7 +72,7 @@ public class CheckoutController : ControllerBase
             success = true,
             message = $"Código de validação de 6 dígitos enviado para {email}.",
             expiresAt,
-            simulatedCode = code // Modo demo/teste amigável
+            simulatedCode = _env.IsDevelopment() ? code : null // Exposto apenas em Development
         });
     }
 
@@ -82,8 +85,8 @@ public class CheckoutController : ControllerBase
         var email = req.Email.Trim().ToLower();
         var code = req.Codigo.Trim().Replace(" ", "");
 
-        // Código mestre de desenvolvimento
-        if (code == "123456")
+        // Código mestre aceito apenas em Development
+        if (_env.IsDevelopment() && code == "123456")
         {
             return Ok(new { valid = true, message = "Código validado com sucesso!" });
         }

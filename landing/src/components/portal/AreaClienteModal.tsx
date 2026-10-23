@@ -72,9 +72,9 @@ export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
       const data = await response.json()
       setResultado(data)
     } catch (err: any) {
-      // Se tiver sessão ativa, gera fallback com os dados da sessão
+      // Em desenvolvimento, com sessão ativa, gera fallback com os dados da sessão
       const currentSession = pagwebService.getSession()
-      if (currentSession) {
+      if (currentSession && import.meta.env.DEV) {
         setResultado({
           protocolo: currentSession.protocolo,
           nomeCliente: currentSession.cliente.nomeRazaoSocial,
@@ -94,7 +94,11 @@ export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
           ],
         })
       } else {
-        setErro(err.message || 'Erro ao consultar processo.')
+        setErro(
+          err instanceof TypeError
+            ? 'Não foi possível consultar seu processo agora. Tente novamente em alguns minutos.'
+            : err.message || 'Erro ao consultar processo.'
+        )
       }
     } finally {
       setLoading(false)

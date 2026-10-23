@@ -37,7 +37,15 @@ export const tokenService = {
         }
       }
     } catch {
-      // Fallback em caso de indisponibilidade de rede
+      // Fallback em caso de indisponibilidade de rede (apenas em desenvolvimento)
+    }
+
+    if (!import.meta.env.DEV) {
+      return {
+        success: false,
+        message: 'Não foi possível enviar o código agora. Tente novamente em alguns minutos.',
+        expiresAt: 0,
+      }
     }
 
     // Fallback local
@@ -85,8 +93,17 @@ export const tokenService = {
         const data = await response.json()
         return { valid: true, message: data.message || 'Código validado com sucesso!' }
       }
+
+      if (!import.meta.env.DEV) {
+        const data = await response.json().catch(() => null)
+        return { valid: false, message: data?.message || 'Código inválido ou expirado.' }
+      }
     } catch {
-      // Fallback
+      // Fallback (apenas em desenvolvimento)
+    }
+
+    if (!import.meta.env.DEV) {
+      return { valid: false, message: 'Não foi possível validar o código agora. Tente novamente em alguns minutos.' }
     }
 
     // Fallback local

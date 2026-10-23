@@ -21,6 +21,7 @@ public class PagamentosController : ControllerBase
     private readonly TokenService _tokenService;
     private readonly IConfiguration _config;
     private readonly ILogger<PagamentosController> _logger;
+    private readonly IWebHostEnvironment _env;
 
     public PagamentosController(
         AppDbContext db,
@@ -29,8 +30,10 @@ public class PagamentosController : ControllerBase
         IEmailService emailService,
         TokenService tokenService,
         IConfiguration config,
-        ILogger<PagamentosController> logger)
+        ILogger<PagamentosController> logger,
+        IWebHostEnvironment env)
     {
+        _env = env;
         _db = db;
         _bixsService = bixsService;
         _pixService = pixService;
@@ -42,7 +45,8 @@ public class PagamentosController : ControllerBase
 
     /// <summary>
     /// Gera a cobrança da 1ª mensalidade via PIX no Bixs Cora Gateway para adesão ao plano.
-    /// Caso as credenciais Bixs ainda não estejam ativas, utiliza contingência local segura com PIX EMV BACEN oficial.
+    /// Em Development, se as credenciais Bixs não estiverem ativas, utiliza contingência local com PIX EMV estático;
+    /// fora de Development retorna 503 (um PIX estático nunca seria conciliado pelo webhook).
     /// </summary>
     [HttpPost("iniciar")]
     [HttpPost("/api/public/checkout/iniciar-pix")]
@@ -198,9 +202,14 @@ public class PagamentosController : ControllerBase
                 throw new BixsException("Bixs retornou fatura vazia.");
             }
         }
+        catch (Exception ex) when (!_env.IsDevelopment())
+        {
+            _logger.LogError(ex, "Gateway Bixs não respondeu com sucesso ou credenciais pendentes. Cobrança PIX não emitida.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "Não foi possível gerar o Pix agora. Tente novamente em alguns minutos." });
+        }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Gateway Bixs não respondeu com sucesso ou credenciais pendentes. Ativando emissão PIX local segura BACEN.");
+            _logger.LogWarning(ex, "Gateway Bixs não respondeu com sucesso ou credenciais pendentes. Ativando emissão PIX local (Development).");
             var chavePix = _config["PixSettings:ChavePix"] ?? "uai@uaipdv.com.br";
             var recebedor = _config["PixSettings:Recebedor"] ?? "NOME LIMPO EXPRESS LTDA";
             var cidade = _config["PixSettings:Cidade"] ?? "BELO HORIZONTE";
@@ -344,6 +353,12 @@ public class PagamentosController : ControllerBase
     [HttpPost("txid/{txid}/confirm-test")]
     public async Task<IActionResult> ConfirmPaymentTest(string? id, string? txid)
     {
+        // Endpoint anônimo que marca a cobrança como paga: disponível apenas em Development
+        if (!_env.IsDevelopment())
+        {
+            return NotFound();
+        }
+
         var key = !string.IsNullOrWhiteSpace(id) ? id.Trim() : (!string.IsNullOrWhiteSpace(txid) ? txid.Trim() : string.Empty);
         if (string.IsNullOrEmpty(key))
         {

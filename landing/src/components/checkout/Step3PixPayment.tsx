@@ -77,8 +77,8 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
         setCheckStatusText('Pagamento ainda em processamento pelo Banco Central. Aguardando compensação...')
         setTimeout(() => setCheckStatusText(''), 4000)
       }
-    } catch {
-      setCheckStatusText('Erro ao consultar gateway. Tentando novamente...')
+    } catch (err) {
+      setCheckStatusText(err instanceof Error ? err.message : 'Erro ao consultar gateway. Tentando novamente...')
     } finally {
       setIsChecking(false)
     }
@@ -97,6 +97,8 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
           onPaymentSuccess(res)
         }, 1500)
       }
+    } catch (err) {
+      setCheckStatusText(err instanceof Error ? err.message : 'Não foi possível confirmar o pagamento de teste.')
     } finally {
       setIsSimulating(false)
     }
@@ -233,20 +235,22 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
         <p className="text-xs text-brand-light font-mono animate-screen-in">{checkStatusText}</p>
       )}
 
-      {/* Botão de Demonstração / Teste Imediato (Padrão Contratos) */}
-      <div className="pt-1">
-        <Button
-          type="button"
-          onClick={handleSimulatePayment}
-          isLoading={isSimulating}
-          variant="secondary"
-          size="md"
-          className="w-full justify-center gap-2 border-brand/30 text-brand-light hover:bg-brand/10 font-mono text-xs sm:text-sm py-3"
-        >
-          <Zap className="h-4 w-4 text-signal" />
-          <span>⚡ Confirmar Pagamento (Ambiente de Teste / Aprovação Imediata)</span>
-        </Button>
-      </div>
+      {/* Botão de Demonstração / Teste Imediato (Padrão Contratos) — apenas em desenvolvimento */}
+      {import.meta.env.DEV && (
+        <div className="pt-1">
+          <Button
+            type="button"
+            onClick={handleSimulatePayment}
+            isLoading={isSimulating}
+            variant="secondary"
+            size="md"
+            className="w-full justify-center gap-2 border-brand/30 text-brand-light hover:bg-brand/10 font-mono text-xs sm:text-sm py-3"
+          >
+            <Zap className="h-4 w-4 text-signal" />
+            <span>⚡ Confirmar Pagamento (Ambiente de Teste / Aprovação Imediata)</span>
+          </Button>
+        </div>
+      )}
 
       {/* Aviso de Confirmação Automática */}
       <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-cream-dim">

@@ -53,6 +53,10 @@ export function Step2TokenValidation({
 
     try {
       const res = await tokenService.sendToken(email)
+      if (!res.success) {
+        setErrorMessage(res.message)
+        return
+      }
       if (res.simulatedCode) {
         setActiveSimulatedCode(res.simulatedCode)
       }

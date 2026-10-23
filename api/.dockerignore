@@ -1,0 +1,9 @@
+bin/
+obj/
+appsettings.Development.json
+*.db
+*.db-*
+*.user
+.vs/
+Dockerfile
+.dockerignore

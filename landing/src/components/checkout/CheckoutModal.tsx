@@ -1,9 +1,15 @@
 import { useState } from 'react'
+import { AlertCircle } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Step1RegisterForm, type RegistrationFormData } from './Step1RegisterForm'
 import { Step3PixPayment } from './Step3PixPayment'
 import { Step4SuccessConfirmation } from './Step4SuccessConfirmation'
-import { pagwebService, type PixChargeResponse, type PaymentStatusCheckResult } from '@/services/pagwebService'
+import {
+  pagwebService,
+  PIX_UNAVAILABLE_MESSAGE,
+  type PixChargeResponse,
+  type PaymentStatusCheckResult,
+} from '@/services/pagwebService'
 import { contractService, type ContractData } from '@/services/contractService'
 
 interface CheckoutModalProps {
@@ -24,6 +30,7 @@ export function CheckoutModal({
   const [pixCharge, setPixCharge] = useState<PixChargeResponse | null>(null)
   const [contract, setContract] = useState<ContractData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
 
   // Reseta ao fechar
   const handleClose = () => {
@@ -33,12 +40,14 @@ export function CheckoutModal({
       setFormData(null)
       setPixCharge(null)
       setContract(null)
+      setErrorMessage('')
     }, 300)
   }
 
   // Passo 1 -> Passo 2 (Gera cobrança PIX imediata via Bixs Cora Gateway)
   const handleRegisterSubmit = async (data: RegistrationFormData) => {
     setIsLoading(true)
+    setErrorMessage('')
     try {
       setFormData(data)
       const charge = await pagwebService.createPixCharge({
@@ -50,6 +59,8 @@ export function CheckoutModal({
       })
       setPixCharge(charge)
       setStep(2)
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : PIX_UNAVAILABLE_MESSAGE)
     } finally {
       setIsLoading(false)
     }
@@ -59,6 +70,7 @@ export function CheckoutModal({
   const handlePaymentSuccess = async (statusResult?: PaymentStatusCheckResult) => {
     if (!formData) return
     setIsLoading(true)
+    setErrorMessage('')
     try {
       const protocolo = statusResult?.protocolo || pixCharge?.protocolo
       const token = statusResult?.token || pixCharge?.token
@@ -89,6 +101,10 @@ export function CheckoutModal({
       }
 
       setStep(3)
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Não foi possível concluir sua assinatura agora. Tente novamente em alguns minutos.'
+      )
     } finally {
       setIsLoading(false)
     }
@@ -130,6 +146,16 @@ export function CheckoutModal({
               style={{ width: `${(step / 2) * 100}%` }}
             />
           </div>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div
+          role="alert"
+          className="mb-5 rounded-2xl border border-red-500/40 bg-red-500/10 p-4 flex items-start gap-2.5 text-sm text-red-400"
+        >
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>{errorMessage}</span>
         </div>
       )}
 
