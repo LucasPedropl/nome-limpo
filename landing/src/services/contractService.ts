@@ -22,6 +22,7 @@ export const contractService = {
     phone: string
     birthDate?: string
     txid?: string
+    paymentId?: string
   }): Promise<ContractData> {
     const today = new Date()
     const targetDate = new Date()
@@ -40,6 +41,7 @@ export const contractService = {
           tipoPessoa: data.document.length > 14 ? 'PJ' : 'PF',
           dataNascimentoFundacao: data.birthDate,
           txId: data.txid,
+          paymentId: data.paymentId,
         }),
       })
 

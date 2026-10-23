@@ -20,19 +20,28 @@ public class WebhooksController : ControllerBase
     private readonly AppDbContext _db;
     private readonly IEmailService _emailService;
     private readonly ILogger<WebhooksController> _logger;
+    private readonly IWebHostEnvironment _env;
 
-    public WebhooksController(AppDbContext db, IEmailService emailService, ILogger<WebhooksController> logger)
+    public WebhooksController(AppDbContext db, IEmailService emailService, ILogger<WebhooksController> logger, IWebHostEnvironment env)
     {
         _db = db;
         _emailService = emailService;
         _logger = logger;
+        _env = env;
     }
 
+    // Webhooks legados, anônimos e sem verificação: só existem em Development.
+    // Em produção a confirmação vem de POST /api/public/pagamentos/webhook (reconsulta a Bixs) ou do polling de status.
     [HttpPost("cora")]
     [HttpPost("pagweb")]
     [HttpPost("pix-confirmacao")]
     public async Task<IActionResult> ReceberWebhookPix([FromBody] PixWebhookPayload payload)
     {
+        if (!_env.IsDevelopment())
+        {
+            return NotFound();
+        }
+
         _logger.LogInformation("Webhook de pagamento recebido para TxID {TxId}: Status {Status}", payload.TxId, payload.Status);
 
         if (string.IsNullOrWhiteSpace(payload.TxId))

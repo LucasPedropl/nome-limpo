@@ -37,7 +37,7 @@ apps/nomelimpo/
    - Monitoramento do prazo de 30 a 45 dias úteis com controle de garantia ativa.
 3. **Gestão Financeira & Cobrança Recorrente:**
    - Mensalidade fixa de R$ 100,00/mês;
-   - Conciliação manual e recepção de webhooks bancários (`POST /api/webhooks/pix-confirmacao`);
+   - Conciliação manual e recepção do webhook Bixs (`POST /api/public/pagamentos/webhook`, confirmado por reconsulta à Bixs); os webhooks legados `/api/webhooks/*` só respondem em Development;
    - Política de inadimplência em 4 etapas (D-3 preventivo, D+5 tolerância, D+7 suspensão e D+30 cancelamento).
 4. **Motor de Mensageria Automática & Régua Transacional:**
    - Registro e envio de e-mails para os 8 eventos obrigatórios do documento:

@@ -82,6 +82,7 @@ export function CheckoutModal({
         phone: formData.phone,
         birthDate: formData.birthDate,
         txid: pixCharge?.txid,
+        paymentId: statusResult?.paymentId || pixCharge?.paymentId,
       })
 
       if (protocolo) {

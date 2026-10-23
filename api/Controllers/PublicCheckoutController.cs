@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NomeLimpo.Api.Data;
@@ -9,14 +10,11 @@ namespace NomeLimpo.Api.Controllers;
 
 public record SolicitarOtpRequest(string Email);
 public record ValidarOtpRequest(string Email, string Codigo);
+// Os dados cadastrais vêm da cobrança já paga; do request só valem o identificador do pagamento e o CPF/CNPJ do titular
 public record ConcluirCheckoutRequest(
-    string NomeRazaoSocial,
-    string CpfCnpj,
-    string Email,
-    string Telefone,
-    string TipoPessoa,
-    string? DataNascimentoFundacao,
-    string? TxId
+    string? CpfCnpj,
+    string? TxId,
+    string? PaymentId
 );
 
 [ApiController]
@@ -95,131 +93,45 @@ public class CheckoutController : ControllerBase
         return BadRequest(new { valid = false, message = "Código inválido ou não encontrado." });
     }
 
+    /// <summary>
+    /// Conclui o checkout da landing: não cria nada, apenas devolve o contrato de uma cobrança já confirmada
+    /// (marcada como Pago pelo webhook Bixs verificado ou pelo polling de status que consulta a Bixs).
+    /// Idempotente: chamadas repetidas devolvem o mesmo contrato.
+    /// </summary>
     [HttpPost("concluir")]
     public async Task<IActionResult> Concluir([FromBody] ConcluirCheckoutRequest req)
     {
-        if (string.IsNullOrWhiteSpace(req.NomeRazaoSocial) || string.IsNullOrWhiteSpace(req.CpfCnpj) || string.IsNullOrWhiteSpace(req.Email))
-            return BadRequest(new { message = "Dados cadastrais incompletos." });
+        var key = !string.IsNullOrWhiteSpace(req.PaymentId) ? req.PaymentId.Trim() : req.TxId?.Trim();
+        if (string.IsNullOrEmpty(key) || string.IsNullOrWhiteSpace(req.CpfCnpj))
+            return BadRequest(new { message = "Pagamento e CPF/CNPJ são obrigatórios para concluir a assinatura." });
 
-        var cleanCpfCnpj = req.CpfCnpj.Trim();
-        var cleanEmail = req.Email.Trim().ToLower();
+        var cobranca = await _db.Cobrancas
+            .FirstOrDefaultAsync(c => c.Id == key || c.TxId == key || c.ExternalCode == key);
 
-        // Verifica se cliente já existe
-        var cliente = await _db.Clientes
-            .Include(c => c.Processos)
-            .Include(c => c.Assinaturas)
-            .FirstOrDefaultAsync(c => c.CpfCnpj == cleanCpfCnpj || c.Email == cleanEmail);
+        var cliente = cobranca is null
+            ? null
+            : await _db.Clientes
+                .Include(c => c.Processos)
+                .FirstOrDefaultAsync(c => c.Id == cobranca.ClienteId);
 
-        if (cliente == null)
-        {
-            cliente = new Cliente
-            {
-                Id = "cli_" + Guid.NewGuid().ToString("N")[..12],
-                TipoPessoa = req.TipoPessoa == "PJ" ? "PJ" : "PF",
-                NomeRazaoSocial = req.NomeRazaoSocial.Trim(),
-                CpfCnpj = cleanCpfCnpj,
-                Email = cleanEmail,
-                Telefone = req.Telefone.Trim(),
-                DataNascimentoFundacao = req.DataNascimentoFundacao,
-                Status = "Ativo",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-            _db.Clientes.Add(cliente);
-        }
-        else
-        {
-            cliente.Status = "Ativo";
-            cliente.UpdatedAt = DateTime.UtcNow;
-        }
+        // Documento precisa bater com o titular da cobrança (mesma resposta para "não existe" e "não é seu")
+        var docInformado = Regex.Replace(req.CpfCnpj, @"\D", "");
+        if (cobranca is null || cliente is null || Regex.Replace(cliente.CpfCnpj, @"\D", "") != docInformado)
+            return NotFound(new { message = "Pagamento não localizado." });
 
-        // Gera novo protocolo de atendimento do processo de regularização
-        var protocolo = $"NL-{DateTime.UtcNow:yyyy}-{new Random().Next(1000, 9999)}";
-        var dataPrevista = DateTime.UtcNow.AddDays(45); // 30 a 45 dias úteis
+        if (cobranca.Status != "Pago")
+            return Conflict(new { message = "Pagamento ainda não confirmado." });
 
-        var processo = new Processo
-        {
-            Id = "prc_" + Guid.NewGuid().ToString("N")[..12],
-            ClienteId = cliente.Id,
-            Protocolo = protocolo,
-            Status = "EmProcessamento",
-            BirosNotificados = "Serasa Experian, SPC Brasil, Boa Vista SCPC",
-            DataInicio = DateTime.UtcNow,
-            DataPrevistaConclusao = dataPrevista,
-            GarantiaValida = true,
-            Observacoes = "Processo contratado e ativado via Landing Page pública. Pagamento PIX R$ 100 liquidado.",
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        processo.Historico.Add(new HistoricoStatus
-        {
-            Id = "hist_" + Guid.NewGuid().ToString("N")[..12],
-            ProcessoId = processo.Id,
-            Status = "EmProcessamento",
-            Titulo = "Processo Ativado e Ofícios em Confecção",
-            Descricao = "Pagamento da primeira mensalidade identificado com sucesso. Notificação extrajudicial aos birôs encaminhada para expedição.",
-            Data = DateTime.UtcNow,
-            Autor = "Checkout Automático"
-        });
-
-        // Assinatura Mensal R$ 100,00
-        var assinatura = new Assinatura
-        {
-            Id = "sub_" + Guid.NewGuid().ToString("N")[..12],
-            ClienteId = cliente.Id,
-            ValorMensal = 100.00m,
-            Status = "Ativa",
-            DataInicio = DateTime.UtcNow,
-            ProximoVencimento = DateTime.UtcNow.AddMonths(1),
-            DiaVencimento = DateTime.UtcNow.Day,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        var cobranca = new Cobranca
-        {
-            Id = "cob_" + Guid.NewGuid().ToString("N")[..12],
-            AssinaturaId = assinatura.Id,
-            ClienteId = cliente.Id,
-            Valor = 100.00m,
-            ReferenciaMes = DateTime.UtcNow.ToString("yyyy-MM"),
-            Status = "Pago",
-            TxId = req.TxId ?? ("NL" + DateTime.UtcNow.ToString("yyMMddHHmmss")),
-            DataVencimento = DateTime.UtcNow,
-            DataPagamento = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        assinatura.Cobrancas.Add(cobranca);
-
-        // Dispara e-mail de ativação do serviço
-        await _emailService.SendActivationEmailAsync(cliente.Email, cliente.NomeRazaoSocial, protocolo, dataPrevista);
-
-        // Registra log da comunicação
-        cliente.Comunicacoes.Add(new LogComunicacao
-        {
-            Id = "log_" + Guid.NewGuid().ToString("N")[..12],
-            ClienteId = cliente.Id,
-            Tipo = "AtivacaoServico",
-            Canal = "Email",
-            Destinatario = cliente.Email,
-            Assunto = $"Serviço Ativado — Protocolo {protocolo}",
-            Conteudo = $"Serviço de manutenção de nome limpo e regularização cadastral ativado com sucesso. Protocolo: {protocolo}. Previsão: {dataPrevista:dd/MM/yyyy}.",
-            Status = "Enviado",
-            DataEnvio = DateTime.UtcNow
-        });
-
-        _db.Processos.Add(processo);
-        _db.Assinaturas.Add(assinatura);
-
-        await _db.SaveChangesAsync();
+        var processo = cliente.Processos.OrderBy(p => p.CreatedAt).FirstOrDefault();
+        if (processo is null)
+            return Conflict(new { message = "Pagamento confirmado, processo ainda em criação. Tente novamente em instantes." });
 
         return Ok(new
         {
             success = true,
-            protocolNumber = protocolo,
-            contractDate = DateTime.UtcNow.ToString("dd/MM/yyyy"),
-            estimatedCompletionDate = dataPrevista.ToString("dd/MM/yyyy"),
+            protocolNumber = processo.Protocolo,
+            contractDate = processo.DataInicio.ToString("dd/MM/yyyy"),
+            estimatedCompletionDate = processo.DataPrevistaConclusao.ToString("dd/MM/yyyy"),
             customerName = cliente.NomeRazaoSocial,
             document = cliente.CpfCnpj,
             email = cliente.Email,
