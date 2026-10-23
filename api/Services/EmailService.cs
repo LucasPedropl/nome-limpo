@@ -71,7 +71,8 @@ public class EmailService : IEmailService
 
     public Task SendOtpEmailAsync(string to, string code)
     {
-        var subject = $"Seu Código de Validação: {code} — Nome Limpo Express";
+        // O código fica só no corpo: o assunto vai para os logs de envio
+        var subject = "Seu Código de Validação — Nome Limpo Express";
         var html = $@"
             <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0f172a; color: #f8fafc; padding: 32px; border-radius: 16px; border: 1px solid #1e293b;'>
                 <h2 style='color: #10b981; margin-top: 0;'>Nome Limpo Express</h2>

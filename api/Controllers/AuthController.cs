@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NomeLimpo.Api.Data;
 using NomeLimpo.Api.Dtos;
+using NomeLimpo.Api.Models;
 using NomeLimpo.Api.Services;
 
 namespace NomeLimpo.Api.Controllers;
@@ -13,12 +14,24 @@ public class AuthController : ControllerBase
     private readonly AppDbContext _db;
     private readonly PasswordService _hasher;
     private readonly TokenService _tokenService;
+    private readonly OtpService _otp;
+    private readonly IEmailService _emailService;
+    private readonly IWebHostEnvironment _env;
 
-    public AuthController(AppDbContext db, PasswordService hasher, TokenService tokenService)
+    public AuthController(
+        AppDbContext db,
+        PasswordService hasher,
+        TokenService tokenService,
+        OtpService otp,
+        IEmailService emailService,
+        IWebHostEnvironment env)
     {
         _db = db;
         _hasher = hasher;
         _tokenService = tokenService;
+        _otp = otp;
+        _emailService = emailService;
+        _env = env;
     }
 
     [HttpPost("login")]
@@ -39,31 +52,55 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Login do assinante/cliente via CPF/CNPJ, E-mail ou Protocolo.
+    /// 1ª etapa do login do assinante: localiza o cadastro por CPF/CNPJ, e-mail ou protocolo e envia
+    /// um código de 6 dígitos para o e-mail cadastrado. A resposta é a mesma exista ou não o cadastro.
+    /// </summary>
+    [HttpPost("cliente-login/solicitar-codigo")]
+    public async Task<IActionResult> SolicitarCodigoClienteLogin([FromBody] ClienteLoginRequest req)
+    {
+        var cleanTerm = ClienteLoginTerm(req);
+        if (string.IsNullOrWhiteSpace(cleanTerm))
+            return BadRequest(new { message = "Informe CPF/CNPJ, e-mail ou número do protocolo para login." });
+
+        var cliente = await FindClienteAsync(cleanTerm);
+        string? simulatedCode = null;
+        if (cliente is not null)
+        {
+            var (code, _, isNew) = _otp.Issue("login:" + cliente.Id);
+            if (isNew)
+                await _emailService.SendOtpEmailAsync(cliente.Email, code);
+            simulatedCode = _env.IsDevelopment() ? code : null; // Exposto apenas em Development
+        }
+
+        return Ok(new
+        {
+            success = true,
+            message = "Se houver uma assinatura com esses dados, enviamos um código de 6 dígitos para o e-mail cadastrado.",
+            simulatedCode
+        });
+    }
+
+    /// <summary>
+    /// 2ª etapa do login do assinante: mesmos dados da 1ª etapa + código recebido no e-mail cadastrado.
     /// </summary>
     [HttpPost("cliente-login")]
     public async Task<IActionResult> ClienteLogin([FromBody] ClienteLoginRequest req)
     {
-        var cleanTerm = (req.CpfCnpj ?? req.Email ?? req.Protocolo ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(cleanTerm))
-            return BadRequest(new { message = "Informe CPF/CNPJ, e-mail ou número do protocolo para login." });
+        var cleanTerm = ClienteLoginTerm(req);
+        var codigo = (req.Codigo ?? "").Trim().Replace(" ", "");
+        if (string.IsNullOrWhiteSpace(cleanTerm) || string.IsNullOrEmpty(codigo))
+            return BadRequest(new { message = "Informe seus dados e o código enviado para o e-mail cadastrado." });
 
-        var digitsOnly = System.Text.RegularExpressions.Regex.Replace(cleanTerm, @"\D", "");
-        var cleanLower = cleanTerm.ToLowerInvariant();
-
-        var cliente = await _db.Clientes
-            .Include(c => c.Processos)
-            .Include(c => c.Assinaturas)
-                .ThenInclude(a => a.Cobrancas)
-            .FirstOrDefaultAsync(c =>
-                c.CpfCnpj == cleanTerm ||
-                (!string.IsNullOrEmpty(digitsOnly) && c.CpfCnpj.Replace(".", "").Replace("-", "").Replace("/", "") == digitsOnly) ||
-                c.Email.ToLower() == cleanLower ||
-                c.Processos.Any(p => p.Protocolo == cleanTerm));
-
-        if (cliente is null)
+        var cliente = await FindClienteAsync(cleanTerm);
+        var result = cliente is null ? OtpValidationResult.Invalid : _otp.Validate("login:" + cliente.Id, codigo);
+        if (cliente is null || result != OtpValidationResult.Valid)
         {
-            return NotFound(new { message = "Nenhum cadastro de assinante localizado para os dados informados." });
+            return Unauthorized(new
+            {
+                message = result == OtpValidationResult.Expired
+                    ? "Código expirado. Solicite um novo."
+                    : "Código inválido ou expirado. Confira o e-mail cadastrado ou solicite um novo código."
+            });
         }
 
         var processo = cliente.Processos.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
@@ -96,6 +133,23 @@ public class AuthController : ControllerBase
                 garantiaValida = processo.GarantiaValida
             } : null
         });
+    }
+
+    private static string ClienteLoginTerm(ClienteLoginRequest req) =>
+        (req.CpfCnpj ?? req.Email ?? req.Protocolo ?? "").Trim();
+
+    private Task<Cliente?> FindClienteAsync(string cleanTerm)
+    {
+        var digitsOnly = System.Text.RegularExpressions.Regex.Replace(cleanTerm, @"\D", "");
+        var cleanLower = cleanTerm.ToLowerInvariant();
+
+        return _db.Clientes
+            .Include(c => c.Processos)
+            .FirstOrDefaultAsync(c =>
+                c.CpfCnpj == cleanTerm ||
+                (!string.IsNullOrEmpty(digitsOnly) && c.CpfCnpj.Replace(".", "").Replace("-", "").Replace("/", "") == digitsOnly) ||
+                c.Email.ToLower() == cleanLower ||
+                c.Processos.Any(p => p.Protocolo == cleanTerm));
     }
 
     /// <summary>

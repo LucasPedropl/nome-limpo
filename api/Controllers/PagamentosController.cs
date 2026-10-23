@@ -18,7 +18,6 @@ public class PagamentosController : ControllerBase
     private readonly IBixsService _bixsService;
     private readonly PixService _pixService;
     private readonly IEmailService _emailService;
-    private readonly TokenService _tokenService;
     private readonly IConfiguration _config;
     private readonly ILogger<PagamentosController> _logger;
     private readonly IWebHostEnvironment _env;
@@ -28,7 +27,6 @@ public class PagamentosController : ControllerBase
         IBixsService bixsService,
         PixService pixService,
         IEmailService emailService,
-        TokenService tokenService,
         IConfiguration config,
         ILogger<PagamentosController> logger,
         IWebHostEnvironment env)
@@ -38,7 +36,6 @@ public class PagamentosController : ControllerBase
         _bixsService = bixsService;
         _pixService = pixService;
         _emailService = emailService;
-        _tokenService = tokenService;
         _config = config;
         _logger = logger;
     }
@@ -63,7 +60,8 @@ public class PagamentosController : ControllerBase
         var docType = cleanDoc.Length > 11 ? "CNPJ" : "CPF";
         var tipoPessoa = req.TipoPessoa == "PJ" || cleanDoc.Length > 11 ? "PJ" : "PF";
 
-        decimal amount = req.Valor.HasValue && req.Valor.Value > 0 ? req.Valor.Value : 100.00m;
+        // Preço da mensalidade é do servidor; o "valor" enviado pelo cliente é ignorado
+        decimal amount = ValorMensalidade();
         int amountInCents = (int)Math.Round(amount * 100m, MidpointRounding.AwayFromZero);
 
         // 1. Localiza ou cria o Cliente
@@ -117,7 +115,7 @@ public class PagamentosController : ControllerBase
 
         // 3. Verifica se já existe cobrança PENDENTE gerada há menos de 25 minutos com PixEmv válido (Reuso idêntico ao Contratos)
         var existingPending = await _db.Cobrancas
-            .Where(c => c.ClienteId == cliente.Id && c.Status == "Pendente" && !string.IsNullOrEmpty(c.PixEmv))
+            .Where(c => c.ClienteId == cliente.Id && c.Status == "Pendente" && !string.IsNullOrEmpty(c.PixEmv) && c.AmountCents == amountInCents)
             .OrderByDescending(c => c.CreatedAt)
             .FirstOrDefaultAsync();
 
@@ -299,12 +297,10 @@ public class PagamentosController : ControllerBase
             try
             {
                 var invoiceStatus = await _bixsService.GetPaymentInvoiceAsync(cobranca.CoraInvoiceId);
-                if (invoiceStatus is not null && !string.IsNullOrEmpty(invoiceStatus.Status))
+                if (string.Equals(invoiceStatus?.Status, "PAID", StringComparison.OrdinalIgnoreCase)
+                    && ValorPagoConfere(cobranca, invoiceStatus!))
                 {
-                    if (invoiceStatus.Status.Equals("PAID", StringComparison.OrdinalIgnoreCase))
-                    {
-                        await AtivarClienteEProcessoAsync(cobranca, cliente);
-                    }
+                    await AtivarClienteEProcessoAsync(cobranca, cliente);
                 }
             }
             catch (Exception ex)
@@ -314,16 +310,9 @@ public class PagamentosController : ControllerBase
         }
 
         var isPaid = cobranca.Status == "Pago";
-        string? token = null;
-        string? protocolo = null;
 
-        if (isPaid && cliente is not null)
-        {
-            var processo = cliente.Processos.FirstOrDefault();
-            protocolo = processo?.Protocolo;
-            token = _tokenService.GenerateClientToken(cliente, protocolo);
-        }
-
+        // Sem token nem dados do titular: os ids da cobrança não são segredo (Id tem 48 bits, TxId deriva do id do cliente).
+        // O login é feito na Área do Cliente com o código enviado ao e-mail cadastrado.
         return Ok(new PaymentStatusResponse
         {
             PaymentId = cobranca.Id,
@@ -332,17 +321,7 @@ public class PagamentosController : ControllerBase
             IsPaid = isPaid,
             PaidAt = cobranca.DataPagamento?.ToString("o"),
             Amount = cobranca.Valor,
-            Protocolo = protocolo,
-            Token = token,
-            Cliente = cliente is not null ? new ClienteSummaryDto
-            {
-                Id = cliente.Id,
-                NomeRazaoSocial = cliente.NomeRazaoSocial,
-                CpfCnpj = cliente.CpfCnpj,
-                Email = cliente.Email,
-                Telefone = cliente.Telefone,
-                Status = cliente.Status
-            } : null
+            Protocolo = isPaid ? cliente?.Processos.FirstOrDefault()?.Protocolo : null
         });
     }
 
@@ -380,10 +359,9 @@ public class PagamentosController : ControllerBase
 
         await AtivarClienteEProcessoAsync(cobranca, cliente);
 
-        var processo = cliente?.Processos.FirstOrDefault();
-        var protocolo = processo?.Protocolo;
-        var token = cliente is not null ? _tokenService.GenerateClientToken(cliente, protocolo) : null;
+        var protocolo = cliente?.Processos.FirstOrDefault()?.Protocolo;
 
+        // Mesmo contrato do status em produção: sem token, o login é pela Área do Cliente
         return Ok(new
         {
             ok = true,
@@ -393,17 +371,7 @@ public class PagamentosController : ControllerBase
             paymentId = cobranca.Id,
             txId = cobranca.TxId,
             amount = cobranca.Valor,
-            protocolo,
-            token,
-            cliente = cliente is not null ? new ClienteSummaryDto
-            {
-                Id = cliente.Id,
-                NomeRazaoSocial = cliente.NomeRazaoSocial,
-                CpfCnpj = cliente.CpfCnpj,
-                Email = cliente.Email,
-                Telefone = cliente.Telefone,
-                Status = cliente.Status
-            } : null
+            protocolo
         });
     }
 
@@ -441,12 +409,16 @@ public class PagamentosController : ControllerBase
         var status = repasse.Data.Status?.ToUpperInvariant();
         if (status == "PAID" && cobranca.Status != "Pago")
         {
-            // Webhook é anônimo e sem assinatura: só confirma se a própria Bixs disser que a fatura está paga.
-            var confirmedInvoiceId = cobranca.CoraInvoiceId ?? invoiceId;
-            var invoice = string.IsNullOrEmpty(confirmedInvoiceId)
-                ? null
-                : await _bixsService.GetPaymentInvoiceAsync(confirmedInvoiceId);
-            if (!string.Equals(invoice?.Status, "PAID", StringComparison.OrdinalIgnoreCase))
+            // Webhook é anônimo e sem assinatura: só confirma se a própria Bixs disser que a fatura que NÓS emitimos está paga.
+            // Nunca usa o invoiceId enviado por quem chamou (seria a fatura paga de outra pessoa).
+            if (string.IsNullOrEmpty(cobranca.CoraInvoiceId))
+            {
+                _logger.LogWarning("Webhook Bixs informou PAID para {CobrancaId}, que não tem fatura Bixs registrada. Ignorado.", cobranca.Id);
+                return Ok(new { received = true, note = "Pagamento não confirmado." });
+            }
+
+            var invoice = await _bixsService.GetPaymentInvoiceAsync(cobranca.CoraInvoiceId);
+            if (!string.Equals(invoice?.Status, "PAID", StringComparison.OrdinalIgnoreCase) || !ValorPagoConfere(cobranca, invoice!))
             {
                 _logger.LogWarning("Webhook Bixs informou PAID para {CobrancaId}, mas a fatura não foi confirmada na consulta.", cobranca.Id);
                 return Ok(new { received = true, note = "Pagamento não confirmado." });
@@ -461,6 +433,28 @@ public class PagamentosController : ControllerBase
         }
 
         return Ok(new { received = true });
+    }
+
+    private decimal ValorMensalidade()
+    {
+        var configured = _config.GetValue<decimal?>("Pagamento:ValorMensalidade");
+        return configured is > 0 ? configured.Value : 100.00m;
+    }
+
+    /// <summary>
+    /// Confere o valor que a Bixs informa como pago (total_paid, em centavos como o amount enviado) com o valor da cobrança.
+    /// Se a Bixs não trouxer total_paid, usa o total da fatura (amount).
+    /// </summary>
+    private bool ValorPagoConfere(Cobranca cobranca, PaymentResponseDto invoice)
+    {
+        var pagoCents = invoice.TotalPaid > 0 ? invoice.TotalPaid : invoice.Amount;
+        if (pagoCents >= cobranca.AmountCents && cobranca.AmountCents > 0)
+            return true;
+
+        _logger.LogWarning(
+            "Fatura Bixs {InvoiceId} paga com valor abaixo do esperado para {CobrancaId}: pago {PagoCents} centavos ({Campo}), esperado {EsperadoCents}. Não marcada como paga.",
+            cobranca.CoraInvoiceId, cobranca.Id, pagoCents, invoice.TotalPaid > 0 ? "total_paid" : "amount", cobranca.AmountCents);
+        return false;
     }
 
     private async Task AtivarClienteEProcessoAsync(Cobranca cobranca, Cliente? cliente)

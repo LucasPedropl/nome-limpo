@@ -130,7 +130,7 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
 
         <div className="rounded-2xl border border-brand/30 bg-brand/10 p-4 text-xs sm:text-sm text-brand-light flex items-center justify-center gap-2.5">
           <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-          <span>Iniciando sua sessão e fazendo login no sistema...</span>
+          <span>Ativando sua assinatura e gerando seu contrato...</span>
         </div>
       </div>
     )

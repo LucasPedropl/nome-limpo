@@ -66,7 +66,7 @@ export function CheckoutModal({
     }
   }
 
-  // Passo 2 -> Passo 3 (Pagamento Confirmado no Gateway e Login Imediato no Sistema)
+  // Passo 2 -> Passo 3 (Pagamento Confirmado no Gateway; o login é na Área do Cliente com código no e-mail)
   const handlePaymentSuccess = async (statusResult?: PaymentStatusCheckResult) => {
     if (!formData) return
     setIsLoading(true)
@@ -123,7 +123,7 @@ export function CheckoutModal({
   const stepTitles = {
     1: 'Assinar Nome Limpo — Dados do Titular',
     2: 'Pagamento PIX da 1ª Mensalidade',
-    3: 'Assinatura Ativa & Login Concluído',
+    3: 'Assinatura Ativa',
   }
 
   return (

@@ -10,6 +10,8 @@ import {
   LogOut,
   UserCheck,
   LayoutDashboard,
+  KeyRound,
+  Mail,
 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { pagwebService, type ClientSession } from '@/services/pagwebService'
@@ -41,6 +43,10 @@ const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5240'
 
 export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
   const [termo, setTermo] = useState('')
+  const [codigo, setCodigo] = useState('')
+  const [etapa, setEtapa] = useState<'identificar' | 'codigo'>('identificar')
+  const [aviso, setAviso] = useState('')
+  const [simulatedCode, setSimulatedCode] = useState<string | undefined>()
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
   const [resultado, setResultado] = useState<ProcessoConsulta | null>(null)
@@ -54,19 +60,28 @@ export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
     setSession(currentSession)
 
     if (currentSession) {
-      carregarProcessoPorTermo(currentSession.protocolo || currentSession.cliente.cpfCnpj)
+      carregarMeuProcesso(currentSession.token)
     }
   }, [isOpen])
 
-  const carregarProcessoPorTermo = async (busca: string) => {
+  const carregarMeuProcesso = async (token: string) => {
     setLoading(true)
     setErro('')
     try {
-      const cleanTerm = busca.trim()
-      const response = await fetch(`${API_URL}/api/public/checkout/consulta/${encodeURIComponent(cleanTerm)}`)
+      const response = await fetch(`${API_URL}/api/public/checkout/meu-processo`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      if (response.status === 401) {
+        pagwebService.clearSession()
+        setSession(null)
+        setEtapa('identificar')
+        setErro('Sua sessão expirou. Entre novamente com o código enviado ao seu e-mail.')
+        return
+      }
 
       if (!response.ok) {
-        throw new Error('Nenhum processo localizado para os dados informados. Verifique seu CPF/CNPJ ou Protocolo.')
+        throw new Error('Nenhum processo localizado para a sua assinatura ainda. Fale com a gente pelo WhatsApp.')
       }
 
       const data = await response.json()
@@ -105,10 +120,41 @@ export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
     }
   }
 
-  const handleBuscar = async (e: FormEvent) => {
-    e.preventDefault()
+  const handleSolicitarCodigo = async (e?: FormEvent) => {
+    e?.preventDefault()
     if (!termo.trim()) return
-    await carregarProcessoPorTermo(termo)
+    setLoading(true)
+    setErro('')
+    try {
+      const res = await pagwebService.solicitarCodigoLogin(termo.trim())
+      setAviso(res.message)
+      setSimulatedCode(res.simulatedCode)
+      setCodigo('')
+      setEtapa('codigo')
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Não foi possível enviar o código agora.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEntrar = async (e: FormEvent) => {
+    e.preventDefault()
+    if (codigo.length !== 6) return
+    setLoading(true)
+    setErro('')
+    try {
+      const novaSessao = await pagwebService.loginCliente(termo.trim(), codigo)
+      setSession(novaSessao)
+      setEtapa('identificar')
+      setCodigo('')
+      setSimulatedCode(undefined)
+      await carregarMeuProcesso(novaSessao.token)
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Código inválido ou expirado.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleLogout = () => {
@@ -116,6 +162,8 @@ export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
     setSession(null)
     setResultado(null)
     setTermo('')
+    setCodigo('')
+    setEtapa('identificar')
     setErro('')
   }
 
@@ -170,44 +218,137 @@ export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
       )}
 
       {!resultado ? (
-        <form onSubmit={handleBuscar} className="space-y-4">
-          <div className="p-4 rounded-xl bg-ink-raised border border-line space-y-2">
-            <span className="text-xs font-semibold text-cream block">
-              Informe seu CPF/CNPJ ou o Protocolo de Atendimento
-            </span>
-            <p className="text-xs text-cream-dim">
-              Você pode consultar usando seu CPF/CNPJ (ex: 128.459.736-22) ou o protocolo gerado na adesão (ex: NL-2026-1048).
-            </p>
+        session ? (
+          <div className="space-y-4">
+            {erro ? (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{erro}</span>
+              </div>
+            ) : (
+              <p className="p-4 rounded-xl bg-ink-raised border border-line text-xs text-cream-dim text-center">
+                {loading ? 'Carregando seu processo...' : 'Nenhum processo carregado.'}
+              </p>
+            )}
           </div>
-
-          {erro && (
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-              <span>{erro}</span>
+        ) : etapa === 'identificar' ? (
+          <form onSubmit={handleSolicitarCodigo} className="space-y-4">
+            <div className="p-4 rounded-xl bg-ink-raised border border-line space-y-2">
+              <span className="text-xs font-semibold text-cream block">
+                Informe seu CPF/CNPJ, e-mail ou o Protocolo de Atendimento
+              </span>
+              <p className="text-xs text-cream-dim">
+                Vamos enviar um código de 6 dígitos para o e-mail cadastrado na assinatura. Use o CPF/CNPJ (ex: 128.459.736-22) ou o protocolo gerado na adesão (ex: NL-2026-1048).
+              </p>
             </div>
-          )}
 
-          <div className="relative">
-            <Search className="w-4 h-4 text-cream-dim absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={termo}
-              onChange={(e) => setTermo(e.target.value)}
-              placeholder="Digite seu CPF, CNPJ ou Protocolo (ex: NL-2026-XXXX)..."
-              required
-              className="w-full pl-10 pr-4 py-3 rounded-xl text-sm bg-ink border border-line text-cream placeholder-cream-dim/60 focus:outline-none focus:border-brand"
-            />
-          </div>
+            {erro && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{erro}</span>
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading || !termo.trim()}
-            className="w-full py-3 px-4 rounded-xl text-sm font-bold bg-brand hover:bg-brand-light text-ink flex items-center justify-center gap-2 shadow-md shadow-brand/20 transition disabled:opacity-50"
-          >
-            {loading ? 'Consultando...' : 'Entrar / Consultar Andamento'}
-            {!loading && <ArrowRight className="w-4 h-4" />}
-          </button>
-        </form>
+            <div className="relative">
+              <Search className="w-4 h-4 text-cream-dim absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={termo}
+                onChange={(e) => setTermo(e.target.value)}
+                placeholder="Digite seu CPF, CNPJ, e-mail ou Protocolo (ex: NL-2026-XXXX)..."
+                required
+                className="w-full pl-10 pr-4 py-3 rounded-xl text-sm bg-ink border border-line text-cream placeholder-cream-dim/60 focus:outline-none focus:border-brand"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !termo.trim()}
+              className="w-full py-3 px-4 rounded-xl text-sm font-bold bg-brand hover:bg-brand-light text-ink flex items-center justify-center gap-2 shadow-md shadow-brand/20 transition disabled:opacity-50"
+            >
+              {loading ? 'Enviando código...' : 'Receber Código no E-mail'}
+              {!loading && <ArrowRight className="w-4 h-4" />}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleEntrar} className="space-y-4">
+            <div className="p-4 rounded-xl bg-ink-raised border border-line space-y-2">
+              <span className="text-xs font-semibold text-cream flex items-center gap-2">
+                <Mail className="w-4 h-4 text-brand" />
+                Código de acesso
+              </span>
+              <p className="text-xs text-cream-dim">{aviso}</p>
+            </div>
+
+            {simulatedCode && (
+              <div className="p-3 rounded-xl bg-brand/10 border border-brand/40 flex items-center justify-between text-xs">
+                <span className="text-brand-light font-mono">Código de teste recebido:</span>
+                <button
+                  type="button"
+                  onClick={() => setCodigo(simulatedCode)}
+                  className="rounded-lg bg-brand px-2.5 py-1 font-mono font-black text-ink hover:bg-brand-light transition"
+                >
+                  Preencher {simulatedCode}
+                </button>
+              </div>
+            )}
+
+            {erro && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{erro}</span>
+              </div>
+            )}
+
+            <div className="relative">
+              <KeyRound className="w-4 h-4 text-cream-dim absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                inputMode="numeric"
+                autoFocus
+                maxLength={6}
+                value={codigo}
+                onChange={(e) => {
+                  setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))
+                  setErro('')
+                }}
+                placeholder="000000"
+                required
+                className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-mono tracking-[0.35em] bg-ink border border-line text-cream placeholder-cream-dim/60 focus:outline-none focus:border-brand"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || codigo.length !== 6}
+              className="w-full py-3 px-4 rounded-xl text-sm font-bold bg-brand hover:bg-brand-light text-ink flex items-center justify-center gap-2 shadow-md shadow-brand/20 transition disabled:opacity-50"
+            >
+              {loading ? 'Entrando...' : 'Entrar na Área do Cliente'}
+              {!loading && <ArrowRight className="w-4 h-4" />}
+            </button>
+
+            <div className="flex items-center justify-between text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setEtapa('identificar')
+                  setErro('')
+                }}
+                className="text-cream-dim hover:text-cream transition"
+              >
+                ← Corrigir dados
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSolicitarCodigo()}
+                disabled={loading}
+                className="font-mono text-brand-light hover:underline disabled:opacity-50"
+              >
+                Reenviar código
+              </button>
+            </div>
+          </form>
+        )
       ) : (
         <div className="space-y-5 animate-in fade-in zoom-in-95 duration-200">
           {/* Header do Processo */}

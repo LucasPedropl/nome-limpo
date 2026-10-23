@@ -140,7 +140,7 @@ export const pagwebService = {
           telefone: params.phone,
           tipoPessoa: params.document.replace(/\D/g, '').length > 11 ? 'PJ' : 'PF',
           dataNascimentoFundacao: params.birthDate,
-          valor: amount,
+          // O valor da mensalidade é definido pela API
         }),
       })
 
@@ -360,30 +360,55 @@ export const pagwebService = {
   },
 
   /**
-   * Login do cliente existente via CPF/CNPJ ou Protocolo
+   * Login do cliente, 1ª etapa: envia um código de 6 dígitos para o e-mail cadastrado (CPF/CNPJ, e-mail ou protocolo)
    */
-  async loginCliente(termo: string): Promise<ClientSession | null> {
+  async solicitarCodigoLogin(termo: string): Promise<{ message: string; simulatedCode?: string }> {
+    let response: Response
     try {
-      const response = await fetch(`${API_URL}/api/auth/cliente-login`, {
+      response = await fetch(`${API_URL}/api/auth/cliente-login/solicitar-codigo`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cpfCnpj: termo, email: termo, protocolo: termo }),
       })
-
-      if (response.ok) {
-        const data = await response.json()
-        const session: ClientSession = {
-          token: data.token,
-          protocolo: data.protocolo,
-          cliente: data.cliente,
-          loggedAt: new Date().toISOString(),
-        }
-        this.saveSession(session)
-        return session
-      }
     } catch {
-      // ignore
+      throw new ApiError('Não foi possível enviar o código agora. Tente novamente em alguns minutos.')
     }
-    return null
+
+    if (!response.ok) {
+      throw new ApiError((await readApiError(response)) || 'Não foi possível enviar o código agora.')
+    }
+
+    const data = await response.json()
+    return { message: data.message, simulatedCode: data.simulatedCode || undefined }
+  },
+
+  /**
+   * Login do cliente, 2ª etapa: confere o código recebido no e-mail e salva a sessão
+   */
+  async loginCliente(termo: string, codigo: string): Promise<ClientSession> {
+    let response: Response
+    try {
+      response = await fetch(`${API_URL}/api/auth/cliente-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cpfCnpj: termo, email: termo, protocolo: termo, codigo }),
+      })
+    } catch {
+      throw new ApiError('Não foi possível entrar agora. Tente novamente em alguns minutos.')
+    }
+
+    if (!response.ok) {
+      throw new ApiError((await readApiError(response)) || 'Código inválido ou expirado.')
+    }
+
+    const data = await response.json()
+    const session: ClientSession = {
+      token: data.token,
+      protocolo: data.protocolo,
+      cliente: data.cliente,
+      loggedAt: new Date().toISOString(),
+    }
+    this.saveSession(session)
+    return session
   },
 }

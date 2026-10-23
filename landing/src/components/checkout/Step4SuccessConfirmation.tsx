@@ -28,7 +28,7 @@ export function Step4SuccessConfirmation({ contract, onClose, onOpenPortal }: St
 
       <div>
         <span className="rounded-full bg-brand/15 px-3.5 py-1 font-mono text-xs font-bold text-brand-light">
-          ● 1ª Mensalidade Liquidada • Login Ativo
+          ● 1ª Mensalidade Liquidada • Assinatura Ativa
         </span>
         <h3 className="font-wide mt-2 text-2xl sm:text-3xl font-black text-cream">
           Assinatura Ativada com Sucesso!
@@ -101,7 +101,7 @@ export function Step4SuccessConfirmation({ contract, onClose, onOpenPortal }: St
             className="w-full justify-center gap-2.5 py-4 text-base font-bold shadow-xl"
           >
             <LayoutDashboard className="h-5 w-5" />
-            <span>Acessar Minha Área do Cliente (Logado)</span>
+            <span>Entrar na Minha Área do Cliente</span>
             <ArrowRight className="h-5 w-5" />
           </Button>
         ) : (

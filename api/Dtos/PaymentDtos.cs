@@ -146,7 +146,7 @@ public class IniciarPagamentoRequest
     public string Telefone { get; set; } = string.Empty;
     public string? TipoPessoa { get; set; } // "PF" | "PJ"
     public string? DataNascimentoFundacao { get; set; }
-    public decimal? Valor { get; set; }
+    public decimal? Valor { get; set; } // Ignorado: o preço vem de Pagamento:ValorMensalidade
     public string? DueDate { get; set; }
     public AddressDto? Endereco { get; set; }
 }
@@ -199,6 +199,7 @@ public class ClienteLoginRequest
     public string? CpfCnpj { get; set; }
     public string? Email { get; set; }
     public string? Protocolo { get; set; }
+    public string? Codigo { get; set; } // Código de 6 dígitos enviado ao e-mail cadastrado
 }
 
 // --- Webhook de Repasse / Notificação Bixs ---

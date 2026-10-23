@@ -78,6 +78,7 @@ builder.Services.AddScoped<PasswordService>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<PixService>();
+builder.Services.AddSingleton<OtpService>();
 builder.Services.AddHttpClient<IBixsService, BixsService>();
 
 // 4. JWT Authentication

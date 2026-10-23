@@ -1,5 +1,6 @@
-using System.Collections.Concurrent;
+using System.Security.Claims;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NomeLimpo.Api.Data;
@@ -21,18 +22,20 @@ public record ConcluirCheckoutRequest(
 [Route("api/public/[controller]")]
 public class CheckoutController : ControllerBase
 {
-    private static readonly ConcurrentDictionary<string, (string Code, DateTime ExpiresAt)> OtpStore = new();
     private readonly AppDbContext _db;
     private readonly IEmailService _emailService;
+    private readonly OtpService _otp;
     private readonly IWebHostEnvironment _env;
 
     public CheckoutController(
         AppDbContext db,
         IEmailService emailService,
+        OtpService otp,
         IWebHostEnvironment env)
     {
         _db = db;
         _emailService = emailService;
+        _otp = otp;
         _env = env;
     }
 
@@ -43,13 +46,11 @@ public class CheckoutController : ControllerBase
             return BadRequest(new { message = "E-mail é obrigatório." });
 
         var email = req.Email.Trim().ToLower();
-        var code = new Random().Next(100000, 999999).ToString();
-        var expiresAt = DateTime.UtcNow.AddMinutes(10);
+        var (code, expiresAt, isNew) = _otp.Issue("checkout:" + email);
 
-        OtpStore[email] = (code, expiresAt);
-
-        // Dispara e-mail real / log
-        await _emailService.SendOtpEmailAsync(email, code);
+        // Dispara e-mail real / log (dentro do intervalo de reenvio não manda outro)
+        if (isNew)
+            await _emailService.SendOtpEmailAsync(email, code);
 
         return Ok(new
         {
@@ -75,20 +76,11 @@ public class CheckoutController : ControllerBase
             return Ok(new { valid = true, message = "Código validado com sucesso!" });
         }
 
-        if (OtpStore.TryGetValue(email, out var stored))
-        {
-            if (DateTime.UtcNow > stored.ExpiresAt)
-            {
-                OtpStore.TryRemove(email, out _);
-                return BadRequest(new { valid = false, message = "Código expirado. Solicite um novo." });
-            }
-
-            if (stored.Code == code)
-            {
-                OtpStore.TryRemove(email, out _);
-                return Ok(new { valid = true, message = "Código validado com sucesso!" });
-            }
-        }
+        var result = _otp.Validate("checkout:" + email, code);
+        if (result == OtpValidationResult.Expired)
+            return BadRequest(new { valid = false, message = "Código expirado. Solicite um novo." });
+        if (result == OtpValidationResult.Valid)
+            return Ok(new { valid = true, message = "Código validado com sucesso!" });
 
         return BadRequest(new { valid = false, message = "Código inválido ou não encontrado." });
     }
@@ -143,18 +135,24 @@ public class CheckoutController : ControllerBase
         });
     }
 
-    [HttpGet("consulta/{termo}")]
-    public async Task<IActionResult> ConsultarProcessoPublico(string termo)
+    /// <summary>
+    /// Processo do assinante logado (token emitido pelo login com código enviado ao e-mail cadastrado).
+    /// Substitui a consulta anônima por CPF/protocolo, que expunha o processo de qualquer pessoa.
+    /// </summary>
+    [HttpGet("meu-processo")]
+    [Authorize]
+    public async Task<IActionResult> MeuProcesso()
     {
-        if (string.IsNullOrWhiteSpace(termo))
-            return BadRequest(new { message = "Informe o protocolo ou CPF/CNPJ." });
-
-        var clean = termo.Trim();
+        var clienteId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
+        if (string.IsNullOrEmpty(clienteId) || !User.IsInRole("Cliente"))
+            return Unauthorized(new { message = "Entre na Área do Cliente para consultar seu processo." });
 
         var processo = await _db.Processos
             .Include(p => p.Cliente)
             .Include(p => p.Historico.OrderByDescending(h => h.Data))
-            .FirstOrDefaultAsync(p => p.Protocolo == clean || (p.Cliente != null && p.Cliente.CpfCnpj == clean));
+            .Where(p => p.ClienteId == clienteId)
+            .OrderByDescending(p => p.CreatedAt)
+            .FirstOrDefaultAsync();
 
         if (processo == null)
             return NotFound(new { message = "Nenhum processo localizado com os dados informados." });
