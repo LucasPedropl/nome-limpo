@@ -67,9 +67,13 @@ public class PagamentosController : ControllerBase
         decimal amount = ValorMensalidade();
         int amountInCents = (int)Math.Round(amount * 100m, MidpointRounding.AwayFromZero);
 
-        // 0. Comprovante do e-mail (POST /api/public/checkout/validar-otp), amarrado a este CPF/CNPJ
-        var verificacao = _tokenService.ValidateCheckoutVerificationToken(req.VerificationToken);
-        if (verificacao is null || verificacao.Value.Documento != cleanDoc)
+        // 0. Comprovante do e-mail (POST /api/public/checkout/validar-otp), amarrado a este CPF/CNPJ.
+        // Checkout:ExigirVerificacaoEmail=false desliga a etapa (demonstração sem SMTP): qualquer um gera PIX para qualquer CPF.
+        var exigirVerificacaoEmail = _config.GetValue("Checkout:ExigirVerificacaoEmail", true);
+        var verificacao = exigirVerificacaoEmail
+            ? _tokenService.ValidateCheckoutVerificationToken(req.VerificationToken)
+            : null;
+        if (exigirVerificacaoEmail && (verificacao is null || verificacao.Value.Documento != cleanDoc))
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { error = "Confirme seu e-mail com o código enviado antes de gerar o PIX." });
         }
@@ -83,7 +87,7 @@ public class PagamentosController : ControllerBase
 
         // Cadastro existente: o código tem que ter ido para o e-mail do cadastro; novo: para o e-mail informado
         var emailEsperado = cliente is null ? cleanEmail : cliente.Email.Trim().ToLowerInvariant();
-        if (verificacao.Value.Email != emailEsperado)
+        if (exigirVerificacaoEmail && verificacao!.Value.Email != emailEsperado)
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { error = "Confirme seu e-mail com o código enviado antes de gerar o PIX." });
         }

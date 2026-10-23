@@ -14,6 +14,10 @@ import {
 import { contractService, type ContractData } from '@/services/contractService'
 import { tokenService } from '@/services/tokenService'
 
+// VITE_CHECKOUT_EXIGIR_EMAIL=false oculta a etapa do código no e-mail (demonstração sem SMTP).
+// A API precisa estar com Checkout__ExigirVerificacaoEmail=false, senão recusa o PIX sem o comprovante.
+const EXIGIR_VERIFICACAO_EMAIL = import.meta.env.VITE_CHECKOUT_EXIGIR_EMAIL !== 'false'
+
 interface CheckoutModalProps {
   isOpen: boolean
   onClose: () => void
@@ -48,12 +52,31 @@ export function CheckoutModal({
     }, 300)
   }
 
+  // Gera a cobrança PIX imediata via Bixs Cora Gateway e vai para o pagamento
+  const generatePixCharge = async (data: RegistrationFormData, verificationToken: string) => {
+    const charge = await pagwebService.createPixCharge({
+      customerName: data.customerName,
+      document: data.document,
+      email: data.email,
+      phone: data.phone,
+      birthDate: data.birthDate,
+      verificationToken,
+    })
+    setPixCharge(charge)
+    setStep(3)
+  }
+
   // Passo 1 -> Passo 2 (Envia o código de confirmação; CPF/CNPJ já cadastrado recebe no e-mail do cadastro)
   const handleRegisterSubmit = async (data: RegistrationFormData) => {
     setIsLoading(true)
     setErrorMessage('')
     try {
       setFormData(data)
+      if (!EXIGIR_VERIFICACAO_EMAIL) {
+        // Etapa do e-mail desligada: direto para o PIX
+        await generatePixCharge(data, '')
+        return
+      }
       const res = await tokenService.sendToken(data.document, data.email)
       if (!res.success) {
         setErrorMessage(res.message)
@@ -61,6 +84,8 @@ export function CheckoutModal({
       }
       setOtpDispatch({ emailDestino: res.emailDestino, simulatedCode: res.simulatedCode })
       setStep(2)
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : PIX_UNAVAILABLE_MESSAGE)
     } finally {
       setIsLoading(false)
     }
@@ -72,16 +97,7 @@ export function CheckoutModal({
     setIsLoading(true)
     setErrorMessage('')
     try {
-      const charge = await pagwebService.createPixCharge({
-        customerName: formData.customerName,
-        document: formData.document,
-        email: formData.email,
-        phone: formData.phone,
-        birthDate: formData.birthDate,
-        verificationToken,
-      })
-      setPixCharge(charge)
-      setStep(3)
+      await generatePixCharge(formData, verificationToken)
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : PIX_UNAVAILABLE_MESSAGE)
     } finally {
@@ -143,6 +159,10 @@ export function CheckoutModal({
     }
   }
 
+  // Sem a etapa do e-mail o PIX vira a etapa 2 de 2
+  const totalSteps = EXIGIR_VERIFICACAO_EMAIL ? 3 : 2
+  const displayStep = !EXIGIR_VERIFICACAO_EMAIL && step === 3 ? 2 : step
+
   const stepTitles = {
     1: 'Assinar Nome Limpo — Dados do Titular',
     2: 'Confirmação do E-mail',
@@ -155,7 +175,7 @@ export function CheckoutModal({
       isOpen={isOpen}
       onClose={handleClose}
       title={stepTitles[step]}
-      description={step < 4 ? `Etapa ${step} de 3: Ativação imediata sem burocracia` : undefined}
+      description={step < 4 ? `Etapa ${displayStep} de ${totalSteps}: Ativação imediata sem burocracia` : undefined}
       maxWidth="lg"
     >
       {/* Indicador de Progresso das Etapas */}
@@ -163,13 +183,17 @@ export function CheckoutModal({
         <div className="mb-6">
           <div className="flex items-center justify-between text-[11px] font-mono text-cream-dim mb-2">
             <span className={step >= 1 ? 'text-brand-light font-bold' : ''}>1. Dados do Titular</span>
-            <span className={step >= 2 ? 'text-brand-light font-bold' : ''}>2. Código no E-mail</span>
-            <span className={step >= 3 ? 'text-brand-light font-bold' : ''}>3. Pagamento PIX (R$ 100)</span>
+            {EXIGIR_VERIFICACAO_EMAIL && (
+              <span className={step >= 2 ? 'text-brand-light font-bold' : ''}>2. Código no E-mail</span>
+            )}
+            <span className={step >= 3 ? 'text-brand-light font-bold' : ''}>
+              {totalSteps}. Pagamento PIX (R$ 100)
+            </span>
           </div>
           <div className="h-1.5 w-full bg-ink rounded-full overflow-hidden border border-line">
             <div
               className="h-full bg-gradient-to-r from-brand via-brand-light to-accent transition-all duration-300"
-              style={{ width: `${(step / 3) * 100}%` }}
+              style={{ width: `${(displayStep / totalSteps) * 100}%` }}
             />
           </div>
         </div>
