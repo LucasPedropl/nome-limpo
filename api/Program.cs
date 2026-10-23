@@ -430,4 +430,8 @@ app.MapGet("/", () => Results.Ok(new
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).AllowAnonymous();
 
+// Rota inexistente responde 404 (sem isso a FallbackPolicy de autorização devolvia 401).
+// "{*path}" pega também caminhos com extensão; endpoints reais têm prioridade e continuam protegidos.
+app.MapFallback("{*path}", () => Results.NotFound()).AllowAnonymous();
+
 app.Run();

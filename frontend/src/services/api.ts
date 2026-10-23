@@ -17,6 +17,15 @@ export interface AdminSession {
 /** Sessão expirada/ausente ou token sem perfil de backoffice: a tela volta para o login. */
 export class UnauthorizedError extends Error {}
 
+export const SERVER_UNAVAILABLE_MESSAGE = 'Não foi possível falar com o servidor. Tente novamente.'
+
+/** Falha de rede ou erro 5xx: o servidor não respondeu como deveria. */
+export class ServerUnavailableError extends Error {
+  constructor() {
+    super(SERVER_UNAVAILABLE_MESSAGE)
+  }
+}
+
 /**
  * O modo mockado vem ATIVADO por padrão só em desenvolvimento (validação sem backend);
  * no build de produção o padrão é a API real, com login.
@@ -75,15 +84,24 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers.set('Authorization', `Bearer ${token}`)
   }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  })
+  let response: Response
+  try {
+    response = await fetch(`${BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    })
+  } catch {
+    throw new ServerUnavailableError()
+  }
 
   if (response.status === 401 || response.status === 403) {
     clearSession()
     window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
     throw new UnauthorizedError('Sessão expirada. Entre novamente.')
+  }
+
+  if (response.status >= 500) {
+    throw new ServerUnavailableError()
   }
 
   if (!response.ok) {
@@ -93,9 +111,10 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   return response.json()
 }
 
-// Falha de rede/servidor cai nos dados mockados; falta de login não (vai para a tela de login)
+// Só em desenvolvimento a falha da API cai nos dados mockados; em produção o erro sobe para
+// a tela (leituras e gravações falham de verdade). Falta de login vai para a tela de login.
 function fallbackToMock<T>(err: unknown, mock: () => T): T {
-  if (err instanceof UnauthorizedError) throw err
+  if (err instanceof UnauthorizedError || !import.meta.env.DEV) throw err
   console.warn('API indisponível. Alternando automaticamente para dados mockados.')
   return mock()
 }

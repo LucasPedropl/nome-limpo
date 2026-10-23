@@ -8,9 +8,15 @@ import { FinanceiroView } from './views/FinanceiroView'
 import { ComunicacoesView } from './views/ComunicacoesView'
 import { NovoClienteModal } from './views/NovoClienteModal'
 import { AreaClienteSimulacaoModal } from './views/AreaClienteSimulacaoModal'
-import { ToastProvider } from './components/Toast'
+import { ToastProvider, useToast } from './components/Toast'
 import { LoginView } from './views/LoginView'
-import { api, AdminSession, UNAUTHORIZED_EVENT } from './services/api'
+import {
+  api,
+  AdminSession,
+  SERVER_UNAVAILABLE_MESSAGE,
+  UNAUTHORIZED_EVENT,
+  UnauthorizedError,
+} from './services/api'
 import { Cliente, Processo, Assinatura, Cobranca, LogComunicacao, DashboardMetrics } from './types'
 
 function AppContent() {
@@ -20,6 +26,8 @@ function AppContent() {
   const [isMockMode, setIsMockMode] = useState<boolean>(() => api.isMockMode())
   const [session, setSession] = useState<AdminSession | null>(() => api.getSession())
   const [sessionExpired, setSessionExpired] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const { showToast } = useToast()
 
   // Data states
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
@@ -37,32 +45,39 @@ function AppContent() {
   const loadData = useCallback(async () => {
     // Sem login no modo API não há o que carregar: a tela de login é exibida
     if (!api.isMockMode() && !api.getSession()) return
-    try {
-      setLoading(true)
-      const [m, p, c, a, cob, l] = await Promise.all([
-        api.getMetrics().catch(() => null),
-        api.getProcessos().catch(() => []),
-        api.getClientes().catch(() => []),
-        api.getAssinaturas().catch(() => []),
-        api.getCobrancas().catch(() => []),
-        api.getComunicacoes().catch(() => []),
-      ])
+    setLoading(true)
+    const [m, p, c, a, cob, l] = await Promise.allSettled([
+      api.getMetrics(),
+      api.getProcessos(),
+      api.getClientes(),
+      api.getAssinaturas(),
+      api.getCobrancas(),
+      api.getComunicacoes(),
+    ])
 
-      if (m) {
-        setMetrics(m)
-        setApiOnline(true)
-      }
-      setProcessos(p)
-      setClientes(c)
-      setAssinaturas(a)
-      setCobrancas(cob)
-      setLogs(l)
-    } catch {
+    // Só aplica o que veio da API; o que falhou mantém o último dado real (nunca dado simulado)
+    if (m.status === 'fulfilled') setMetrics(m.value)
+    if (p.status === 'fulfilled') setProcessos(p.value)
+    if (c.status === 'fulfilled') setClientes(c.value)
+    if (a.status === 'fulfilled') setAssinaturas(a.value)
+    if (cob.status === 'fulfilled') setCobrancas(cob.value)
+    if (l.status === 'fulfilled') setLogs(l.value)
+
+    // 401/403 já leva para o login; qualquer outra falha vira estado de erro na tela
+    const falha = [m, p, c, a, cob, l].find(
+      (r): r is PromiseRejectedResult => r.status === 'rejected' && !(r.reason instanceof UnauthorizedError)
+    )
+    if (falha) {
+      const mensagem = falha.reason instanceof Error ? falha.reason.message : SERVER_UNAVAILABLE_MESSAGE
+      setLoadError(mensagem)
       setApiOnline(false)
-    } finally {
-      setLoading(false)
+      showToast('Erro ao Carregar', mensagem, 'error')
+    } else {
+      setLoadError(null)
+      setApiOnline(true)
     }
-  }, [])
+    setLoading(false)
+  }, [showToast])
 
   useEffect(() => {
     loadData()
@@ -163,6 +178,23 @@ function AppContent() {
         />
 
         <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+          {loadError && (
+            <div
+              role="alert"
+              className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700"
+            >
+              <span>{loadError}</span>
+              <button
+                type="button"
+                onClick={loadData}
+                disabled={loading}
+                className="font-semibold underline underline-offset-2 disabled:opacity-50"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          )}
+
           {currentTab === 'dashboard' && (
             <DashboardView
               metrics={metrics}
