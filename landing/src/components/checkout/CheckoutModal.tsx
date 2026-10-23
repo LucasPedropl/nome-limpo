@@ -216,6 +216,7 @@ export function CheckoutModal({
           initialData={formData}
           onSubmit={handleRegisterSubmit}
           isLoading={isLoading}
+          submitLabel={EXIGIR_VERIFICACAO_EMAIL ? undefined : 'Gerar PIX de Pagamento'}
         />
       )}
 

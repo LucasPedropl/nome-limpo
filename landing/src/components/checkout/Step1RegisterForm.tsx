@@ -18,9 +18,16 @@ interface Step1Props {
   initialData?: RegistrationFormData | null // Volta da etapa do código com os dados já digitados
   onSubmit: (data: RegistrationFormData) => Promise<void>
   isLoading: boolean
+  submitLabel?: string // Sem a etapa do e-mail o botão já gera o PIX
 }
 
-export function Step1RegisterForm({ initialDocType = 'PF', initialData, onSubmit, isLoading }: Step1Props) {
+export function Step1RegisterForm({
+  initialDocType = 'PF',
+  initialData,
+  onSubmit,
+  isLoading,
+  submitLabel = 'Receber Código de Confirmação no E-mail',
+}: Step1Props) {
   const [docType, setDocType] = useState<'PF' | 'PJ'>(initialData?.docType ?? initialDocType)
   const [customerName, setCustomerName] = useState(initialData?.customerName ?? '')
   const [email, setEmail] = useState(initialData?.email ?? '')
@@ -223,7 +230,7 @@ export function Step1RegisterForm({ initialDocType = 'PF', initialData, onSubmit
           size="lg"
           className="w-full justify-center gap-2.5 py-4 text-base font-bold shadow-lg"
         >
-          <span>Receber Código de Confirmação no E-mail</span>
+          <span>{submitLabel}</span>
           <ArrowRight className="h-5 w-5" />
         </Button>
       </div>
