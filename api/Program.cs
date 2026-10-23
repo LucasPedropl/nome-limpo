@@ -47,8 +47,10 @@ var defaultCorsOrigins = new[]
     "http://localhost:5230",
     "http://localhost:5231",
     "http://localhost:5242",
-    "https://nome-limpo.vercel.app",
-    "https://nome-limpo2.vercel.app"
+    // nome-limpo.vercel.app é de terceiros; o projeto nome-limpo da Vercel responde em nome-limpo-iota
+    "https://nome-limpo-iota.vercel.app",
+    "https://nome-limpo2.vercel.app",
+    "https://frontend-ashen-seven-81.vercel.app"
 };
 var corsSection = builder.Configuration.GetSection("Cors:Origins");
 var corsOrigins = (corsSection.GetChildren().Any()

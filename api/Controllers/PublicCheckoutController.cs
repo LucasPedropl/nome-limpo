@@ -54,6 +54,10 @@ public class CheckoutController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Email) || (doc.Length != 11 && doc.Length != 14))
             return BadRequest(new { message = "CPF/CNPJ e e-mail são obrigatórios." });
 
+        // Sem SMTP o código não chega a ninguém: melhor avisar do que dizer que foi enviado
+        if (!_emailService.IsConfigured && !_env.IsDevelopment())
+            return StatusCode(503, new { message = "O envio de e-mail está indisponível no momento. Tente novamente mais tarde." });
+
         var (destino, cadastroExistente) = await ResolverEmailDestinoAsync(doc, req.Email);
         var (code, expiresAt, isNew) = _otp.Issue(CheckoutOtpKey(doc, destino));
 

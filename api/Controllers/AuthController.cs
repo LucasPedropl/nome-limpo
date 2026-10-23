@@ -65,6 +65,10 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(cleanTerm))
             return BadRequest(new { message = "Informe CPF/CNPJ, e-mail ou número do protocolo para login." });
 
+        // Checado antes de procurar o cadastro, para a resposta não revelar se ele existe
+        if (!_emailService.IsConfigured && !_env.IsDevelopment())
+            return StatusCode(503, new { message = "O envio de e-mail está indisponível no momento. Tente novamente mais tarde." });
+
         var cliente = await FindClienteAsync(cleanTerm);
         string? simulatedCode = null;
         if (cliente is not null)

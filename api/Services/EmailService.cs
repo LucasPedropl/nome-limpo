@@ -5,6 +5,8 @@ namespace NomeLimpo.Api.Services;
 
 public interface IEmailService
 {
+    /// <summary>Há SMTP real configurado; sem ele os e-mails só vão para o log.</summary>
+    bool IsConfigured { get; }
     Task SendEmailAsync(string to, string subject, string bodyHtml);
     Task SendOtpEmailAsync(string to, string code);
     Task SendActivationEmailAsync(string to, string nome, string protocolo, DateTime dataPrevisao);
@@ -22,6 +24,11 @@ public class EmailService : IEmailService
         _config = config;
         _logger = logger;
     }
+
+    public bool IsConfigured =>
+        !string.IsNullOrWhiteSpace(_config["EmailSettings:SmtpServer"])
+        && _config["EmailSettings:SmtpServer"] != "localhost"
+        && !string.IsNullOrWhiteSpace(_config["EmailSettings:Username"]);
 
     public async Task SendEmailAsync(string to, string subject, string bodyHtml)
     {
