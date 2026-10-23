@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -102,12 +103,24 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
         ValidateIssuer = false,
-        ValidateAudience = false,
+        // Só tokens de sessão (admin/cliente); o comprovante de e-mail do checkout tem outra audiência e não autentica
+        ValidateAudience = true,
+        ValidAudiences = TokenService.SessionAudiences(builder.Configuration),
         ClockSkew = TimeSpan.FromSeconds(10)
     };
 });
 
-builder.Services.AddAuthorization();
+// Backoffice exige token de usuário admin (Perfil Admin/Operador); token de cliente recebe 403.
+// Fallback: endpoint sem [Authorize]/[AllowAnonymous] explícito também cai nessa regra.
+builder.Services.AddAuthorization(options =>
+{
+    var backoffice = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .RequireRole(AuthPolicies.BackofficeRoles)
+        .Build();
+    options.AddPolicy(AuthPolicies.Backoffice, backoffice);
+    options.FallbackPolicy = backoffice;
+});
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -413,8 +426,8 @@ app.MapGet("/", () => Results.Ok(new
     status = "online",
     version = "1.0.0",
     docs = app.Environment.IsDevelopment() ? "/swagger" : null
-}));
+})).AllowAnonymous();
 
-app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).AllowAnonymous();
 
 app.Run();

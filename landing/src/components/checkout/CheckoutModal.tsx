@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Step1RegisterForm, type RegistrationFormData } from './Step1RegisterForm'
+import { Step2TokenValidation } from './Step2TokenValidation'
 import { Step3PixPayment } from './Step3PixPayment'
 import { Step4SuccessConfirmation } from './Step4SuccessConfirmation'
 import {
@@ -11,6 +12,7 @@ import {
   type PaymentStatusCheckResult,
 } from '@/services/pagwebService'
 import { contractService, type ContractData } from '@/services/contractService'
+import { tokenService } from '@/services/tokenService'
 
 interface CheckoutModalProps {
   isOpen: boolean
@@ -25,8 +27,9 @@ export function CheckoutModal({
   onOpenAreaCliente,
   initialDocType = 'PF',
 }: CheckoutModalProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [formData, setFormData] = useState<RegistrationFormData | null>(null)
+  const [otpDispatch, setOtpDispatch] = useState<{ emailDestino?: string; simulatedCode?: string } | null>(null)
   const [pixCharge, setPixCharge] = useState<PixChargeResponse | null>(null)
   const [contract, setContract] = useState<ContractData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -38,27 +41,47 @@ export function CheckoutModal({
     setTimeout(() => {
       setStep(1)
       setFormData(null)
+      setOtpDispatch(null)
       setPixCharge(null)
       setContract(null)
       setErrorMessage('')
     }, 300)
   }
 
-  // Passo 1 -> Passo 2 (Gera cobrança PIX imediata via Bixs Cora Gateway)
+  // Passo 1 -> Passo 2 (Envia o código de confirmação; CPF/CNPJ já cadastrado recebe no e-mail do cadastro)
   const handleRegisterSubmit = async (data: RegistrationFormData) => {
     setIsLoading(true)
     setErrorMessage('')
     try {
       setFormData(data)
+      const res = await tokenService.sendToken(data.document, data.email)
+      if (!res.success) {
+        setErrorMessage(res.message)
+        return
+      }
+      setOtpDispatch({ emailDestino: res.emailDestino, simulatedCode: res.simulatedCode })
+      setStep(2)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Passo 2 -> Passo 3 (Código confirmado: gera cobrança PIX imediata via Bixs Cora Gateway)
+  const handleCodeVerified = async (verificationToken: string) => {
+    if (!formData) return
+    setIsLoading(true)
+    setErrorMessage('')
+    try {
       const charge = await pagwebService.createPixCharge({
-        customerName: data.customerName,
-        document: data.document,
-        email: data.email,
-        phone: data.phone,
-        birthDate: data.birthDate,
+        customerName: formData.customerName,
+        document: formData.document,
+        email: formData.email,
+        phone: formData.phone,
+        birthDate: formData.birthDate,
+        verificationToken,
       })
       setPixCharge(charge)
-      setStep(2)
+      setStep(3)
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : PIX_UNAVAILABLE_MESSAGE)
     } finally {
@@ -66,7 +89,7 @@ export function CheckoutModal({
     }
   }
 
-  // Passo 2 -> Passo 3 (Pagamento Confirmado no Gateway; o login é na Área do Cliente com código no e-mail)
+  // Passo 3 -> Passo 4 (Pagamento Confirmado no Gateway; o login é na Área do Cliente com código no e-mail)
   const handlePaymentSuccess = async (statusResult?: PaymentStatusCheckResult) => {
     if (!formData) return
     setIsLoading(true)
@@ -101,7 +124,7 @@ export function CheckoutModal({
         })
       }
 
-      setStep(3)
+      setStep(4)
     } catch (err) {
       setErrorMessage(
         err instanceof Error ? err.message : 'Não foi possível concluir sua assinatura agora. Tente novamente em alguns minutos.'
@@ -122,8 +145,9 @@ export function CheckoutModal({
 
   const stepTitles = {
     1: 'Assinar Nome Limpo — Dados do Titular',
-    2: 'Pagamento PIX da 1ª Mensalidade',
-    3: 'Assinatura Ativa',
+    2: 'Confirmação do E-mail',
+    3: 'Pagamento PIX da 1ª Mensalidade',
+    4: 'Assinatura Ativa',
   }
 
   return (
@@ -131,20 +155,21 @@ export function CheckoutModal({
       isOpen={isOpen}
       onClose={handleClose}
       title={stepTitles[step]}
-      description={step < 3 ? `Etapa ${step} de 2: Ativação imediata sem burocracia` : undefined}
+      description={step < 4 ? `Etapa ${step} de 3: Ativação imediata sem burocracia` : undefined}
       maxWidth="lg"
     >
       {/* Indicador de Progresso das Etapas */}
-      {step < 3 && (
+      {step < 4 && (
         <div className="mb-6">
           <div className="flex items-center justify-between text-[11px] font-mono text-cream-dim mb-2">
             <span className={step >= 1 ? 'text-brand-light font-bold' : ''}>1. Dados do Titular</span>
-            <span className={step >= 2 ? 'text-brand-light font-bold' : ''}>2. Pagamento PIX (R$ 100)</span>
+            <span className={step >= 2 ? 'text-brand-light font-bold' : ''}>2. Código no E-mail</span>
+            <span className={step >= 3 ? 'text-brand-light font-bold' : ''}>3. Pagamento PIX (R$ 100)</span>
           </div>
           <div className="h-1.5 w-full bg-ink rounded-full overflow-hidden border border-line">
             <div
               className="h-full bg-gradient-to-r from-brand via-brand-light to-accent transition-all duration-300"
-              style={{ width: `${(step / 2) * 100}%` }}
+              style={{ width: `${(step / 3) * 100}%` }}
             />
           </div>
         </div>
@@ -164,19 +189,35 @@ export function CheckoutModal({
       {step === 1 && (
         <Step1RegisterForm
           initialDocType={initialDocType}
+          initialData={formData}
           onSubmit={handleRegisterSubmit}
           isLoading={isLoading}
         />
       )}
 
-      {step === 2 && pixCharge && (
+      {step === 2 && formData && (
+        <Step2TokenValidation
+          document={formData.document}
+          email={formData.email}
+          emailDestino={otpDispatch?.emailDestino}
+          simulatedCode={otpDispatch?.simulatedCode}
+          onVerified={handleCodeVerified}
+          onBack={() => {
+            setErrorMessage('')
+            setStep(1)
+          }}
+          isLoading={isLoading}
+        />
+      )}
+
+      {step === 3 && pixCharge && (
         <Step3PixPayment
           charge={pixCharge}
           onPaymentSuccess={handlePaymentSuccess}
         />
       )}
 
-      {step === 3 && contract && (
+      {step === 4 && contract && (
         <Step4SuccessConfirmation
           contract={contract}
           onClose={handleClose}

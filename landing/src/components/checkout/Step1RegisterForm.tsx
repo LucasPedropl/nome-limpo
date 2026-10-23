@@ -15,17 +15,18 @@ export interface RegistrationFormData {
 
 interface Step1Props {
   initialDocType?: 'PF' | 'PJ'
+  initialData?: RegistrationFormData | null // Volta da etapa do código com os dados já digitados
   onSubmit: (data: RegistrationFormData) => Promise<void>
   isLoading: boolean
 }
 
-export function Step1RegisterForm({ initialDocType = 'PF', onSubmit, isLoading }: Step1Props) {
-  const [docType, setDocType] = useState<'PF' | 'PJ'>(initialDocType)
-  const [customerName, setCustomerName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [document, setDocument] = useState('')
-  const [birthDate, setBirthDate] = useState('')
+export function Step1RegisterForm({ initialDocType = 'PF', initialData, onSubmit, isLoading }: Step1Props) {
+  const [docType, setDocType] = useState<'PF' | 'PJ'>(initialData?.docType ?? initialDocType)
+  const [customerName, setCustomerName] = useState(initialData?.customerName ?? '')
+  const [email, setEmail] = useState(initialData?.email ?? '')
+  const [phone, setPhone] = useState(initialData?.phone ?? '')
+  const [document, setDocument] = useState(initialData?.document ?? '')
+  const [birthDate, setBirthDate] = useState(initialData?.birthDate ?? '')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const validate = (): boolean => {
@@ -222,7 +223,7 @@ export function Step1RegisterForm({ initialDocType = 'PF', onSubmit, isLoading }
           size="lg"
           className="w-full justify-center gap-2.5 py-4 text-base font-bold shadow-lg"
         >
-          <span>Gerar PIX da 1ª Mensalidade (R$ 100,00)</span>
+          <span>Receber Código de Confirmação no E-mail</span>
           <ArrowRight className="h-5 w-5" />
         </Button>
       </div>

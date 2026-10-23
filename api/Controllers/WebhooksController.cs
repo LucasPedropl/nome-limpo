@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NomeLimpo.Api.Data;
@@ -15,6 +16,7 @@ public record PixWebhookPayload(
 
 [ApiController]
 [Route("api/[controller]")]
+[AllowAnonymous] // Legados: só respondem em Development (checado na action)
 public class WebhooksController : ControllerBase
 {
     private readonly AppDbContext _db;

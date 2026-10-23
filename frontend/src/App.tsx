@@ -9,7 +9,8 @@ import { ComunicacoesView } from './views/ComunicacoesView'
 import { NovoClienteModal } from './views/NovoClienteModal'
 import { AreaClienteSimulacaoModal } from './views/AreaClienteSimulacaoModal'
 import { ToastProvider } from './components/Toast'
-import { api } from './services/api'
+import { LoginView } from './views/LoginView'
+import { api, AdminSession, UNAUTHORIZED_EVENT } from './services/api'
 import { Cliente, Processo, Assinatura, Cobranca, LogComunicacao, DashboardMetrics } from './types'
 
 function AppContent() {
@@ -17,6 +18,8 @@ function AppContent() {
   const [loading, setLoading] = useState(false)
   const [apiOnline, setApiOnline] = useState(true)
   const [isMockMode, setIsMockMode] = useState<boolean>(() => api.isMockMode())
+  const [session, setSession] = useState<AdminSession | null>(() => api.getSession())
+  const [sessionExpired, setSessionExpired] = useState(false)
 
   // Data states
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
@@ -32,6 +35,8 @@ function AppContent() {
   const [modalAreaClienteOpen, setModalAreaClienteOpen] = useState(false)
 
   const loadData = useCallback(async () => {
+    // Sem login no modo API não há o que carregar: a tela de login é exibida
+    if (!api.isMockMode() && !api.getSession()) return
     try {
       setLoading(true)
       const [m, p, c, a, cob, l] = await Promise.all([
@@ -61,7 +66,17 @@ function AppContent() {
 
   useEffect(() => {
     loadData()
-  }, [loadData])
+  }, [loadData, session])
+
+  // 401/403 da API: sessão descartada em services/api.ts, volta para o login
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setSession(null)
+      setSessionExpired(true)
+    }
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
+  }, [])
 
   const handleToggleMockMode = (active: boolean) => {
     api.setMockMode(active)
@@ -69,6 +84,25 @@ function AppContent() {
     setTimeout(() => {
       loadData()
     }, 100)
+  }
+
+  const handleLogout = () => {
+    api.logout()
+    setSessionExpired(false)
+    setSession(null)
+  }
+
+  if (!isMockMode && !session) {
+    return (
+      <LoginView
+        sessionExpired={sessionExpired}
+        onLoggedIn={(s) => {
+          setSessionExpired(false)
+          setSession(s)
+        }}
+        onUseMock={() => handleToggleMockMode(true)}
+      />
+    )
   }
 
   const tabTitles: Record<TabType, { title: string; subtitle: string }> = {
@@ -111,6 +145,8 @@ function AppContent() {
         apiOnline={apiOnline}
         isMockMode={isMockMode}
         onToggleMockMode={handleToggleMockMode}
+        session={session}
+        onLogout={handleLogout}
       />
 
       {/* Main Container */}

@@ -9,8 +9,8 @@ using NomeLimpo.Api.Services;
 
 namespace NomeLimpo.Api.Controllers;
 
-public record SolicitarOtpRequest(string Email);
-public record ValidarOtpRequest(string Email, string Codigo);
+public record SolicitarOtpRequest(string? CpfCnpj, string Email);
+public record ValidarOtpRequest(string? CpfCnpj, string Email, string Codigo);
 // Os dados cadastrais vêm da cobrança já paga; do request só valem o identificador do pagamento e o CPF/CNPJ do titular
 public record ConcluirCheckoutRequest(
     string? CpfCnpj,
@@ -26,63 +26,109 @@ public class CheckoutController : ControllerBase
     private readonly IEmailService _emailService;
     private readonly OtpService _otp;
     private readonly IWebHostEnvironment _env;
+    private readonly TokenService _tokenService;
 
     public CheckoutController(
         AppDbContext db,
         IEmailService emailService,
         OtpService otp,
-        IWebHostEnvironment env)
+        IWebHostEnvironment env,
+        TokenService tokenService)
     {
         _db = db;
         _emailService = emailService;
         _otp = otp;
         _env = env;
+        _tokenService = tokenService;
     }
 
+    /// <summary>
+    /// 1ª etapa do checkout: envia o código de 6 dígitos. CPF/CNPJ já cadastrado recebe no e-mail que está no cadastro,
+    /// nunca no e-mail digitado — é assim que o titular prova que é ele antes de gerar cobrança no nome dele.
+    /// </summary>
     [HttpPost("solicitar-otp")]
+    [AllowAnonymous]
     public async Task<IActionResult> SolicitarOtp([FromBody] SolicitarOtpRequest req)
     {
-        if (string.IsNullOrWhiteSpace(req.Email))
-            return BadRequest(new { message = "E-mail é obrigatório." });
+        var doc = Regex.Replace(req.CpfCnpj ?? "", @"\D", "");
+        if (string.IsNullOrWhiteSpace(req.Email) || (doc.Length != 11 && doc.Length != 14))
+            return BadRequest(new { message = "CPF/CNPJ e e-mail são obrigatórios." });
 
-        var email = req.Email.Trim().ToLower();
-        var (code, expiresAt, isNew) = _otp.Issue("checkout:" + email);
+        var (destino, cadastroExistente) = await ResolverEmailDestinoAsync(doc, req.Email);
+        var (code, expiresAt, isNew) = _otp.Issue(CheckoutOtpKey(doc, destino));
 
         // Dispara e-mail real / log (dentro do intervalo de reenvio não manda outro)
         if (isNew)
-            await _emailService.SendOtpEmailAsync(email, code);
+            await _emailService.SendOtpEmailAsync(destino, code);
 
+        var emailExibido = cadastroExistente ? MascararEmail(destino) : destino;
         return Ok(new
         {
             success = true,
-            message = $"Código de validação de 6 dígitos enviado para {email}.",
+            message = cadastroExistente
+                ? $"Este CPF/CNPJ já tem cadastro: enviamos o código de 6 dígitos para o e-mail cadastrado ({emailExibido})."
+                : $"Código de validação de 6 dígitos enviado para {emailExibido}.",
+            emailDestino = emailExibido,
+            cadastroExistente,
             expiresAt,
             simulatedCode = _env.IsDevelopment() ? code : null // Exposto apenas em Development
         });
     }
 
+    /// <summary>
+    /// 2ª etapa do checkout: confere o código e devolve o comprovante (verificationToken, 30 min) exigido pelo
+    /// POST /api/public/pagamentos/iniciar, amarrado a este CPF/CNPJ e ao e-mail que recebeu o código.
+    /// </summary>
     [HttpPost("validar-otp")]
-    public IActionResult ValidarOtp([FromBody] ValidarOtpRequest req)
+    [AllowAnonymous]
+    public async Task<IActionResult> ValidarOtp([FromBody] ValidarOtpRequest req)
     {
-        if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Codigo))
-            return BadRequest(new { valid = false, message = "E-mail e código são obrigatórios." });
+        var doc = Regex.Replace(req.CpfCnpj ?? "", @"\D", "");
+        if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Codigo) || (doc.Length != 11 && doc.Length != 14))
+            return BadRequest(new { valid = false, message = "CPF/CNPJ, e-mail e código são obrigatórios." });
 
-        var email = req.Email.Trim().ToLower();
+        var (destino, _) = await ResolverEmailDestinoAsync(doc, req.Email);
         var code = req.Codigo.Trim().Replace(" ", "");
 
         // Código mestre aceito apenas em Development
-        if (_env.IsDevelopment() && code == "123456")
-        {
-            return Ok(new { valid = true, message = "Código validado com sucesso!" });
-        }
+        var result = _env.IsDevelopment() && code == "123456"
+            ? OtpValidationResult.Valid
+            : _otp.Validate(CheckoutOtpKey(doc, destino), code);
 
-        var result = _otp.Validate("checkout:" + email, code);
         if (result == OtpValidationResult.Expired)
             return BadRequest(new { valid = false, message = "Código expirado. Solicite um novo." });
-        if (result == OtpValidationResult.Valid)
-            return Ok(new { valid = true, message = "Código validado com sucesso!" });
+        if (result != OtpValidationResult.Valid)
+            return BadRequest(new { valid = false, message = "Código inválido ou não encontrado." });
 
-        return BadRequest(new { valid = false, message = "Código inválido ou não encontrado." });
+        return Ok(new
+        {
+            valid = true,
+            message = "Código validado com sucesso!",
+            verificationToken = _tokenService.GenerateCheckoutVerificationToken(doc, destino)
+        });
+    }
+
+    private static string CheckoutOtpKey(string doc, string email) => $"checkout:{doc}:{email}";
+
+    private async Task<(string Email, bool CadastroExistente)> ResolverEmailDestinoAsync(string doc, string emailDigitado)
+    {
+        var emailCadastrado = await _db.Clientes
+            .Where(c => c.CpfCnpj.Replace(".", "").Replace("-", "").Replace("/", "") == doc)
+            .Select(c => c.Email)
+            .FirstOrDefaultAsync();
+
+        return string.IsNullOrWhiteSpace(emailCadastrado)
+            ? (emailDigitado.Trim().ToLowerInvariant(), false)
+            : (emailCadastrado.Trim().ToLowerInvariant(), true);
+    }
+
+    private static string MascararEmail(string email)
+    {
+        var at = email.IndexOf('@');
+        if (at <= 0)
+            return "***";
+        var visivel = email[..Math.Min(2, at)];
+        return $"{visivel}***{email[at..]}";
     }
 
     /// <summary>
@@ -91,6 +137,7 @@ public class CheckoutController : ControllerBase
     /// Idempotente: chamadas repetidas devolvem o mesmo contrato.
     /// </summary>
     [HttpPost("concluir")]
+    [AllowAnonymous]
     public async Task<IActionResult> Concluir([FromBody] ConcluirCheckoutRequest req)
     {
         var key = !string.IsNullOrWhiteSpace(req.PaymentId) ? req.PaymentId.Trim() : req.TxId?.Trim();

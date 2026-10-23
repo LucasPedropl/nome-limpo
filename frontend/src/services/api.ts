@@ -3,18 +3,31 @@ import { mockStore } from './mockStore'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5240'
 const MOCK_MODE_KEY = 'nomelimpo_mock_mode_active'
+const TOKEN_KEY = 'nomelimpo_token'
+const SESSION_KEY = 'nomelimpo_admin_session'
+export const UNAUTHORIZED_EVENT = 'nomelimpo:unauthorized'
+
+export interface AdminSession {
+  token: string
+  nome: string
+  email: string
+  perfil: string
+}
+
+/** Sessão expirada/ausente ou token sem perfil de backoffice: a tela volta para o login. */
+export class UnauthorizedError extends Error {}
 
 /**
- * Por padrão, o modo mockado é ATIVADO para validação imediata e autônoma,
- * permitindo envio do frontend sem exigência de backend rodando.
+ * O modo mockado vem ATIVADO por padrão só em desenvolvimento (validação sem backend);
+ * no build de produção o padrão é a API real, com login.
  */
 export function isMockModeActive(): boolean {
   try {
     const saved = localStorage.getItem(MOCK_MODE_KEY)
-    if (saved === null) return true // Default: Mock ativo para validação
+    if (saved === null) return import.meta.env.DEV
     return saved === 'true'
   } catch {
-    return true
+    return import.meta.env.DEV
   }
 }
 
@@ -26,8 +39,36 @@ export function setMockModeActive(active: boolean): void {
   }
 }
 
+export function getSession(): AdminSession | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY)
+    const session: AdminSession | null = raw ? JSON.parse(raw) : null
+    return session?.token && localStorage.getItem(TOKEN_KEY) === session.token ? session : null
+  } catch {
+    return null
+  }
+}
+
+function clearSession(): void {
+  try {
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(SESSION_KEY)
+  } catch {
+    // Ignore
+  }
+}
+
+async function readErrorMessage(response: Response): Promise<string> {
+  const errorText = await response.text()
+  try {
+    return JSON.parse(errorText).message || `Erro ${response.status}: ${response.statusText}`
+  } catch {
+    return errorText || 'Erro inesperado na requisição.'
+  }
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem('nomelimpo_token')
+  const token = localStorage.getItem(TOKEN_KEY)
   const headers = new Headers(options.headers || {})
   headers.set('Content-Type', 'application/json')
   if (token) {
@@ -39,24 +80,57 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers,
   })
 
+  if (response.status === 401 || response.status === 403) {
+    clearSession()
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
+    throw new UnauthorizedError('Sessão expirada. Entre novamente.')
+  }
+
   if (!response.ok) {
-    const errorText = await response.text()
-    let errorJson
-    try {
-      errorJson = JSON.parse(errorText)
-    } catch {
-      errorJson = { message: errorText || 'Erro inesperado na requisição.' }
-    }
-    throw new Error(errorJson.message || `Erro ${response.status}: ${response.statusText}`)
+    throw new Error(await readErrorMessage(response))
   }
 
   return response.json()
+}
+
+// Falha de rede/servidor cai nos dados mockados; falta de login não (vai para a tela de login)
+function fallbackToMock<T>(err: unknown, mock: () => T): T {
+  if (err instanceof UnauthorizedError) throw err
+  console.warn('API indisponível. Alternando automaticamente para dados mockados.')
+  return mock()
 }
 
 export const api = {
   isMockMode: isMockModeActive,
   setMockMode: setMockModeActive,
   resetMockData: () => mockStore.resetData(),
+  getSession,
+
+  // Autenticação do backoffice (POST /api/auth/login)
+  login: async (email: string, senha: string): Promise<AdminSession> => {
+    let response: Response
+    try {
+      response = await fetch(`${BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, senha }),
+      })
+    } catch {
+      throw new Error('Não foi possível conectar à API. Tente novamente em instantes.')
+    }
+
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response))
+    }
+
+    const data = await response.json()
+    const session: AdminSession = { token: data.token, nome: data.nome, email: data.email, perfil: data.perfil }
+    localStorage.setItem(TOKEN_KEY, session.token)
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+    return session
+  },
+
+  logout: () => clearSession(),
 
   // Dashboard
   getMetrics: async (): Promise<DashboardMetrics> => {
@@ -66,8 +140,7 @@ export const api = {
     try {
       return await request<DashboardMetrics>('/api/dashboard/metrics')
     } catch (err) {
-      console.warn('API indisponível. Alternando automaticamente para dados mockados.')
-      return mockStore.getMetrics()
+      return fallbackToMock(err, () => mockStore.getMetrics())
     }
   },
 
@@ -82,8 +155,8 @@ export const api = {
       if (status && status !== 'Todos') params.append('status', status)
       const qs = params.toString() ? `?${params.toString()}` : ''
       return await request<Cliente[]>(`/api/clientes${qs}`)
-    } catch {
-      return mockStore.getClientes(search, status)
+    } catch (err) {
+      return fallbackToMock(err, () => mockStore.getClientes(search, status))
     }
   },
 
@@ -93,8 +166,8 @@ export const api = {
     }
     try {
       return await request<Cliente>(`/api/clientes/${id}`)
-    } catch {
-      return mockStore.getClienteById(id)
+    } catch (err) {
+      return fallbackToMock(err, () => mockStore.getClienteById(id))
     }
   },
 
@@ -114,8 +187,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(dados),
       })
-    } catch {
-      return mockStore.criarCliente(dados)
+    } catch (err) {
+      return fallbackToMock(err, () => mockStore.criarCliente(dados))
     }
   },
 
@@ -130,8 +203,8 @@ export const api = {
       if (search) params.append('search', search)
       const qs = params.toString() ? `?${params.toString()}` : ''
       return await request<Processo[]>(`/api/processos${qs}`)
-    } catch {
-      return mockStore.getProcessos(status, search)
+    } catch (err) {
+      return fallbackToMock(err, () => mockStore.getProcessos(status, search))
     }
   },
 
@@ -141,8 +214,8 @@ export const api = {
     }
     try {
       return await request<Processo>(`/api/processos/${id}`)
-    } catch {
-      return mockStore.getProcessoById(id)
+    } catch (err) {
+      return fallbackToMock(err, () => mockStore.getProcessoById(id))
     }
   },
 
@@ -163,8 +236,8 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(payload),
       })
-    } catch {
-      return mockStore.atualizarStatusProcesso(id, payload)
+    } catch (err) {
+      return fallbackToMock(err, () => mockStore.atualizarStatusProcesso(id, payload))
     }
   },
 
@@ -177,8 +250,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ observacao }),
       })
-    } catch {
-      return mockStore.adicionarNotaProcesso(id, observacao)
+    } catch (err) {
+      return fallbackToMock(err, () => mockStore.adicionarNotaProcesso(id, observacao))
     }
   },
 
@@ -192,8 +265,8 @@ export const api = {
       if (status && status !== 'Todos') params.append('status', status)
       const qs = params.toString() ? `?${params.toString()}` : ''
       return await request<Assinatura[]>(`/api/financeiro/assinaturas${qs}`)
-    } catch {
-      return mockStore.getAssinaturas(status)
+    } catch (err) {
+      return fallbackToMock(err, () => mockStore.getAssinaturas(status))
     }
   },
 
@@ -207,8 +280,8 @@ export const api = {
       if (mes) params.append('mes', mes)
       const qs = params.toString() ? `?${params.toString()}` : ''
       return await request<Cobranca[]>(`/api/financeiro/cobrancas${qs}`)
-    } catch {
-      return mockStore.getCobrancas(status, mes)
+    } catch (err) {
+      return fallbackToMock(err, () => mockStore.getCobrancas(status, mes))
     }
   },
 
@@ -220,8 +293,8 @@ export const api = {
       return await request<Cobranca>(`/api/financeiro/cobrancas/${id}/confirmar-pagamento`, {
         method: 'POST',
       })
-    } catch {
-      return mockStore.confirmarPagamentoCobranca(id)
+    } catch (err) {
+      return fallbackToMock(err, () => mockStore.confirmarPagamentoCobranca(id))
     }
   },
 
@@ -236,8 +309,8 @@ export const api = {
       if (canal && canal !== 'Todos') params.append('canal', canal)
       const qs = params.toString() ? `?${params.toString()}` : ''
       return await request<LogComunicacao[]>(`/api/comunicacoes${qs}`)
-    } catch {
-      return mockStore.getComunicacoes(tipo, canal)
+    } catch (err) {
+      return fallbackToMock(err, () => mockStore.getComunicacoes(tipo, canal))
     }
   },
 
@@ -256,8 +329,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-    } catch {
-      return mockStore.dispararComunicacao(payload)
+    } catch (err) {
+      return fallbackToMock(err, () => mockStore.dispararComunicacao(payload))
     }
   },
 }

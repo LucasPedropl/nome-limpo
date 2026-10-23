@@ -4,15 +4,19 @@ import { Button } from '@/components/ui/Button'
 import { tokenService } from '@/services/tokenService'
 
 interface Step2Props {
+  document: string
   email: string
+  emailDestino?: string
   simulatedCode?: string
-  onVerified: () => Promise<void>
+  onVerified: (verificationToken: string) => Promise<void>
   onBack: () => void
   isLoading: boolean
 }
 
 export function Step2TokenValidation({
+  document,
   email,
+  emailDestino: initialEmailDestino,
   simulatedCode: initialCode,
   onVerified,
   onBack,
@@ -20,6 +24,7 @@ export function Step2TokenValidation({
 }: Step2Props) {
   const [tokenInput, setTokenInput] = useState('')
   const [activeSimulatedCode, setActiveSimulatedCode] = useState(initialCode)
+  const [emailDestino, setEmailDestino] = useState(initialEmailDestino || email)
   const [errorMessage, setErrorMessage] = useState('')
   const [resendCooldown, setResendCooldown] = useState(60)
   const [isResending, setIsResending] = useState(false)
@@ -37,13 +42,13 @@ export function Step2TokenValidation({
     e.preventDefault()
     setErrorMessage('')
 
-    const res = await tokenService.verifyToken(email, tokenInput)
-    if (!res.valid) {
+    const res = await tokenService.verifyToken(document, email, tokenInput)
+    if (!res.valid || !res.verificationToken) {
       setErrorMessage(res.message)
       return
     }
 
-    await onVerified()
+    await onVerified(res.verificationToken)
   }
 
   const handleResend = async () => {
@@ -52,10 +57,13 @@ export function Step2TokenValidation({
     setErrorMessage('')
 
     try {
-      const res = await tokenService.sendToken(email)
+      const res = await tokenService.sendToken(document, email)
       if (!res.success) {
         setErrorMessage(res.message)
         return
+      }
+      if (res.emailDestino) {
+        setEmailDestino(res.emailDestino)
       }
       if (res.simulatedCode) {
         setActiveSimulatedCode(res.simulatedCode)
@@ -78,7 +86,7 @@ export function Step2TokenValidation({
         </h4>
         <p className="mt-2 text-sm text-cream-dim leading-relaxed">
           Enviamos um código de validação de 6 dígitos para o e-mail:
-          <span className="font-mono font-bold text-cream block mt-1 text-base">{email}</span>
+          <span className="font-mono font-bold text-cream block mt-1 text-base">{emailDestino}</span>
         </p>
       </div>
 
@@ -149,7 +157,7 @@ export function Step2TokenValidation({
           onClick={onBack}
           className="text-cream-dim hover:text-cream transition-colors font-medium"
         >
-          ← Corrigir e-mail
+          ← Corrigir dados
         </button>
 
         <button

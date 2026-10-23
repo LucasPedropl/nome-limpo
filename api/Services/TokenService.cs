@@ -26,6 +26,76 @@ public class TokenService
         return secret;
     }
 
+    private const string CheckoutAudience = "NomeLimpoCheckoutEmail";
+    private static readonly TimeSpan CheckoutVerificationLifetime = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// Audiências aceitas como sessão (admin e cliente). O comprovante do checkout fica fora para não autenticar nada.
+    /// </summary>
+    public static string[] SessionAudiences(IConfiguration config) =>
+        new[] { config["Jwt:Audience"], "NomeLimpoBackoffice", "NomeLimpoEcosystem" }
+            .Where(a => !string.IsNullOrWhiteSpace(a))
+            .Select(a => a!)
+            .Distinct()
+            .ToArray();
+
+    /// <summary>
+    /// Comprovante de que o e-mail foi confirmado por código para aquele CPF/CNPJ. Exigido pelo iniciar do checkout.
+    /// </summary>
+    public string GenerateCheckoutVerificationToken(string documentoDigits, string email)
+    {
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetJwtKey()));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: _config["Jwt:Issuer"] ?? "NomeLimpo",
+            audience: CheckoutAudience,
+            claims: new[]
+            {
+                new Claim("doc", documentoDigits),
+                new Claim("email", email)
+            },
+            expires: DateTime.UtcNow.Add(CheckoutVerificationLifetime),
+            signingCredentials: creds
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    /// <summary>
+    /// Devolve (documento, e-mail) do comprovante, ou null se inválido/expirado.
+    /// </summary>
+    public (string Documento, string Email)? ValidateCheckoutVerificationToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return null;
+
+        var handler = new JwtSecurityTokenHandler { MapInboundClaims = false };
+        try
+        {
+            var principal = handler.ValidateToken(token, new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetJwtKey())),
+                ValidateIssuer = false,
+                ValidateAudience = true,
+                ValidAudience = CheckoutAudience,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromSeconds(10)
+            }, out _);
+
+            var doc = principal.FindFirst("doc")?.Value;
+            var email = principal.FindFirst("email")?.Value;
+            if (string.IsNullOrEmpty(doc) || string.IsNullOrEmpty(email))
+                return null;
+            return (doc, email);
+        }
+        catch (Exception ex) when (ex is SecurityTokenException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
     public string GenerateToken(UsuarioAdmin usuario)
     {
         var secret = GetJwtKey();

@@ -1,80 +1,68 @@
 /**
- * Serviço de geração, envio e validação de tokens de segurança OTP por e-mail
- * Integrado à API NomeLimpo com fallback local resiliente
+ * Serviço de envio e validação do código de confirmação por e-mail do checkout.
+ * A API amarra o código ao CPF/CNPJ: se o documento já tem cadastro, o código vai para o e-mail cadastrado.
+ * A validação devolve o comprovante (verificationToken) exigido para gerar o PIX.
  */
 
 export interface TokenDispatchResult {
   success: boolean
   message: string
   expiresAt: number
-  simulatedCode?: string // Exibido em modo demo para facilitar testes
+  emailDestino?: string // E-mail que recebeu o código (mascarado quando é o do cadastro)
+  simulatedCode?: string // Exposto pela API só em Development, para o botão de preencher
 }
 
-const STORAGE_KEY_PREFIX = 'nl_token_'
+export interface TokenVerifyResult {
+  valid: boolean
+  message: string
+  verificationToken?: string
+}
+
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5240'
 
 export const tokenService = {
   /**
-   * Solicita o envio do código OTP para o e-mail via API do Backoffice
+   * Solicita o envio do código de 6 dígitos para o e-mail do titular
    */
-  async sendToken(email: string): Promise<TokenDispatchResult> {
+  async sendToken(document: string, email: string): Promise<TokenDispatchResult> {
     const cleanEmail = email.trim().toLowerCase()
 
     try {
       const response = await fetch(`${API_URL}/api/public/checkout/solicitar-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail }),
+        body: JSON.stringify({ cpfCnpj: document, email: cleanEmail }),
       })
 
-      if (response.ok) {
-        const data = await response.json()
+      const data = await response.json().catch(() => null)
+      if (response.ok && data) {
         return {
           success: true,
           message: data.message || `Código enviado para ${cleanEmail}`,
           expiresAt: new Date(data.expiresAt).getTime(),
-          simulatedCode: data.simulatedCode,
+          emailDestino: data.emailDestino || cleanEmail,
+          simulatedCode: data.simulatedCode || undefined,
         }
       }
-    } catch {
-      // Fallback em caso de indisponibilidade de rede (apenas em desenvolvimento)
-    }
 
-    if (!import.meta.env.DEV) {
+      return {
+        success: false,
+        message: data?.message || 'Não foi possível enviar o código agora. Tente novamente em alguns minutos.',
+        expiresAt: 0,
+      }
+    } catch {
       return {
         success: false,
         message: 'Não foi possível enviar o código agora. Tente novamente em alguns minutos.',
         expiresAt: 0,
       }
     }
-
-    // Fallback local
-    const code = Math.floor(100000 + Math.random() * 900000).toString()
-    const expiresAt = Date.now() + 10 * 60 * 1000
-
-    try {
-      localStorage.setItem(
-        `${STORAGE_KEY_PREFIX}${cleanEmail}`,
-        JSON.stringify({ code, expiresAt, email: cleanEmail })
-      )
-    } catch {
-      // ignore
-    }
-
-    await new Promise((res) => setTimeout(res, 500))
-
-    return {
-      success: true,
-      message: `Código de verificação enviado com sucesso para ${cleanEmail}`,
-      expiresAt,
-      simulatedCode: code,
-    }
   },
 
   /**
-   * Valida o token digitado pelo usuário na API
+   * Confere o código na API e devolve o comprovante para gerar o PIX
    */
-  async verifyToken(email: string, inputCode: string): Promise<{ valid: boolean; message: string }> {
+  async verifyToken(document: string, email: string, inputCode: string): Promise<TokenVerifyResult> {
     const cleanEmail = email.trim().toLowerCase()
     const cleanCode = inputCode.trim().replace(/\D/g, '')
 
@@ -86,43 +74,21 @@ export const tokenService = {
       const response = await fetch(`${API_URL}/api/public/checkout/validar-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, codigo: cleanCode }),
+        body: JSON.stringify({ cpfCnpj: document, email: cleanEmail, codigo: cleanCode }),
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        return { valid: true, message: data.message || 'Código validado com sucesso!' }
-      }
-
-      if (!import.meta.env.DEV) {
-        const data = await response.json().catch(() => null)
-        return { valid: false, message: data?.message || 'Código inválido ou expirado.' }
-      }
-    } catch {
-      // Fallback (apenas em desenvolvimento)
-    }
-
-    if (!import.meta.env.DEV) {
-      return { valid: false, message: 'Não foi possível validar o código agora. Tente novamente em alguns minutos.' }
-    }
-
-    // Fallback local
-    if (cleanCode === '123456') {
-      return { valid: true, message: 'Código mestre validado com sucesso!' }
-    }
-
-    try {
-      const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${cleanEmail}`)
-      if (raw) {
-        const stored = JSON.parse(raw)
-        if (stored.code === cleanCode) {
-          return { valid: true, message: 'Código validado com sucesso!' }
+      const data = await response.json().catch(() => null)
+      if (response.ok && data?.verificationToken) {
+        return {
+          valid: true,
+          message: data.message || 'Código validado com sucesso!',
+          verificationToken: data.verificationToken,
         }
       }
-    } catch {
-      // ignore
-    }
 
-    return { valid: true, message: 'Identidade confirmada com sucesso!' }
+      return { valid: false, message: data?.message || 'Código inválido ou expirado.' }
+    } catch {
+      return { valid: false, message: 'Não foi possível validar o código agora. Tente novamente em alguns minutos.' }
+    }
   },
 }

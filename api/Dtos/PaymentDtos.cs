@@ -149,6 +149,7 @@ public class IniciarPagamentoRequest
     public decimal? Valor { get; set; } // Ignorado: o preço vem de Pagamento:ValorMensalidade
     public string? DueDate { get; set; }
     public AddressDto? Endereco { get; set; }
+    public string? VerificationToken { get; set; } // Comprovante devolvido por /api/public/checkout/validar-otp
 }
 
 public class PaymentResultDto

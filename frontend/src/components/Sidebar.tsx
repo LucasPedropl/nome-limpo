@@ -1,4 +1,5 @@
 import React from 'react'
+import type { AdminSession } from '../services/api'
 import {
   LayoutDashboard,
   FileText,
@@ -8,6 +9,7 @@ import {
   ShieldCheck,
   Sparkles,
   Server,
+  LogOut,
 } from 'lucide-react'
 
 export type TabType = 'dashboard' | 'processos' | 'clientes' | 'financeiro' | 'comunicacoes'
@@ -19,6 +21,8 @@ interface SidebarProps {
   apiOnline?: boolean
   isMockMode: boolean
   onToggleMockMode: (val: boolean) => void
+  session?: AdminSession | null
+  onLogout?: () => void
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -28,6 +32,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   apiOnline = true,
   isMockMode,
   onToggleMockMode,
+  session = null,
+  onLogout,
 }) => {
   const menuItems: { id: TabType; label: string; icon: React.ReactNode; badge?: number }[] = [
     {
@@ -143,9 +149,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             OP
           </div>
           <div className="text-xs min-w-0 flex-1">
-            <p className="font-semibold text-slate-800 truncate text-[11px]">Operador Geral</p>
-            <p className="text-slate-500 text-[10px] truncate">admin@nomelimpo.com.br</p>
+            <p className="font-semibold text-slate-800 truncate text-[11px]">{session?.nome ?? 'Operador Geral'}</p>
+            <p className="text-slate-500 text-[10px] truncate">{session?.email ?? 'Modo validação'}</p>
           </div>
+          {session && onLogout && (
+            <button
+              onClick={onLogout}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              title="Sair"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
     </aside>

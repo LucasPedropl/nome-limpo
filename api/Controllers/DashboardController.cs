@@ -1,12 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NomeLimpo.Api.Data;
+using NomeLimpo.Api.Services;
 using NomeLimpo.Api.Dtos;
 
 namespace NomeLimpo.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Policy = AuthPolicies.Backoffice)]
 public class DashboardController : ControllerBase
 {
     private readonly AppDbContext _db;
@@ -27,13 +30,13 @@ public class DashboardController : ControllerBase
             p.Status == "EmProcessamento" || p.Status == "NotificacaoBiro" || p.Status == "EmAnalise");
         var processosConcluidos = await _db.Processos.CountAsync(p => p.Status == "Concluido");
 
-        // Assinaturas ativas * R$ 100/mês
-        var mrr = await _db.Assinaturas.Where(a => a.Status == "Ativa").SumAsync(a => a.ValorMensal);
+        // Assinaturas ativas * R$ 100/mês. Soma em memória: SQLite não agrega decimal no servidor
+        var mrr = (await _db.Assinaturas.Where(a => a.Status == "Ativa").Select(a => a.ValorMensal).ToListAsync()).Sum();
 
         var mesAtual = DateTime.UtcNow.ToString("yyyy-MM");
-        var receitaTotalMes = await _db.Cobrancas
+        var receitaTotalMes = (await _db.Cobrancas
             .Where(c => c.Status == "Pago" && c.ReferenciaMes == mesAtual)
-            .SumAsync(c => c.Valor);
+            .Select(c => c.Valor).ToListAsync()).Sum();
 
         var totalFinalizados = processosConcluidos + await _db.Processos.CountAsync(p => p.Status == "Cancelado");
         var taxaSucesso = totalFinalizados > 0 

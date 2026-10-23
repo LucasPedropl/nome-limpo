@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NomeLimpo.Api.Data;
@@ -35,6 +36,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Senha))
@@ -56,6 +58,7 @@ public class AuthController : ControllerBase
     /// um código de 6 dígitos para o e-mail cadastrado. A resposta é a mesma exista ou não o cadastro.
     /// </summary>
     [HttpPost("cliente-login/solicitar-codigo")]
+    [AllowAnonymous]
     public async Task<IActionResult> SolicitarCodigoClienteLogin([FromBody] ClienteLoginRequest req)
     {
         var cleanTerm = ClienteLoginTerm(req);
@@ -84,6 +87,7 @@ public class AuthController : ControllerBase
     /// 2ª etapa do login do assinante: mesmos dados da 1ª etapa + código recebido no e-mail cadastrado.
     /// </summary>
     [HttpPost("cliente-login")]
+    [AllowAnonymous]
     public async Task<IActionResult> ClienteLogin([FromBody] ClienteLoginRequest req)
     {
         var cleanTerm = ClienteLoginTerm(req);
@@ -156,6 +160,7 @@ public class AuthController : ControllerBase
     /// Valida o token JWT atual e retorna os dados do usuário autenticado.
     /// </summary>
     [HttpGet("me")]
+    [Authorize] // Admin ou cliente
     public async Task<IActionResult> GetCurrentUser()
     {
         var sub = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value

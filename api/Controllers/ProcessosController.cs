@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NomeLimpo.Api.Data;
+using NomeLimpo.Api.Services;
 using NomeLimpo.Api.Dtos;
 using NomeLimpo.Api.Models;
 
@@ -8,6 +10,7 @@ namespace NomeLimpo.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Policy = AuthPolicies.Backoffice)]
 public class ProcessosController : ControllerBase
 {
     private readonly AppDbContext _db;

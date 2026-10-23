@@ -21,6 +21,7 @@ public class PagamentosController : ControllerBase
     private readonly IConfiguration _config;
     private readonly ILogger<PagamentosController> _logger;
     private readonly IWebHostEnvironment _env;
+    private readonly TokenService _tokenService;
 
     public PagamentosController(
         AppDbContext db,
@@ -29,9 +30,11 @@ public class PagamentosController : ControllerBase
         IEmailService emailService,
         IConfiguration config,
         ILogger<PagamentosController> logger,
-        IWebHostEnvironment env)
+        IWebHostEnvironment env,
+        TokenService tokenService)
     {
         _env = env;
+        _tokenService = tokenService;
         _db = db;
         _bixsService = bixsService;
         _pixService = pixService;
@@ -64,12 +67,26 @@ public class PagamentosController : ControllerBase
         decimal amount = ValorMensalidade();
         int amountInCents = (int)Math.Round(amount * 100m, MidpointRounding.AwayFromZero);
 
-        // 1. Localiza ou cria o Cliente
+        // 0. Comprovante do e-mail (POST /api/public/checkout/validar-otp), amarrado a este CPF/CNPJ
+        var verificacao = _tokenService.ValidateCheckoutVerificationToken(req.VerificationToken);
+        if (verificacao is null || verificacao.Value.Documento != cleanDoc)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "Confirme seu e-mail com o código enviado antes de gerar o PIX." });
+        }
+
+        // 1. Localiza (só pelo CPF/CNPJ) ou cria o Cliente
         var cliente = await _db.Clientes
             .Include(c => c.Assinaturas)
                 .ThenInclude(a => a.Cobrancas)
             .Include(c => c.Processos)
-            .FirstOrDefaultAsync(c => c.CpfCnpj == cleanDoc || c.CpfCnpj == req.CpfCnpj.Trim() || c.Email == cleanEmail);
+            .FirstOrDefaultAsync(c => c.CpfCnpj.Replace(".", "").Replace("-", "").Replace("/", "") == cleanDoc);
+
+        // Cadastro existente: o código tem que ter ido para o e-mail do cadastro; novo: para o e-mail informado
+        var emailEsperado = cliente is null ? cleanEmail : cliente.Email.Trim().ToLowerInvariant();
+        if (verificacao.Value.Email != emailEsperado)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "Confirme seu e-mail com o código enviado antes de gerar o PIX." });
+        }
 
         if (cliente is null)
         {
@@ -88,12 +105,7 @@ public class PagamentosController : ControllerBase
             };
             _db.Clientes.Add(cliente);
         }
-        else
-        {
-            cliente.NomeRazaoSocial = req.NomeRazaoSocial.Trim();
-            cliente.Telefone = string.IsNullOrWhiteSpace(req.Telefone) ? cliente.Telefone : req.Telefone.Trim();
-            cliente.UpdatedAt = DateTime.UtcNow;
-        }
+        // Cadastro existente não é alterado por aqui: nome, telefone e e-mail só mudam pelo backoffice
 
         // 2. Garante que exista uma Assinatura vinculada
         var assinatura = cliente.Assinaturas.FirstOrDefault(a => a.Status == "Ativa" || a.Status == "Pendente");
@@ -158,6 +170,7 @@ public class PagamentosController : ControllerBase
             Country = "BRA"
         };
 
+        var telefoneCobranca = Regex.Replace(cliente.Telefone ?? string.Empty, @"\D", "");
         var paymentRequest = new PaymentRequestDto
         {
             Amount = amountInCents,
@@ -170,7 +183,7 @@ public class PagamentosController : ControllerBase
             {
                 Name = cliente.NomeRazaoSocial,
                 Email = cliente.Email,
-                Phone = string.IsNullOrWhiteSpace(cleanPhone) ? "31999999999" : cleanPhone,
+                Phone = string.IsNullOrWhiteSpace(telefoneCobranca) ? "31999999999" : telefoneCobranca,
                 Document = string.IsNullOrWhiteSpace(cleanDoc) ? "00000000000" : cleanDoc,
                 DocumentType = docType,
                 Address = address

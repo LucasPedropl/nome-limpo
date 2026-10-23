@@ -7,6 +7,7 @@ export interface CreatePixSubscriptionParams {
   phone: string
   birthDate?: string
   amount?: number
+  verificationToken: string // Comprovante do código confirmado no e-mail (validar-otp)
 }
 
 export interface PixChargeResponse {
@@ -140,6 +141,7 @@ export const pagwebService = {
           telefone: params.phone,
           tipoPessoa: params.document.replace(/\D/g, '').length > 11 ? 'PJ' : 'PF',
           dataNascimentoFundacao: params.birthDate,
+          verificationToken: params.verificationToken,
           // O valor da mensalidade é definido pela API
         }),
       })
@@ -170,13 +172,14 @@ export const pagwebService = {
         return charge
       }
 
-      if (!LOCAL_FALLBACK_ENABLED) {
+      // Recusa da API (ex.: código do e-mail não confirmado) chega ao usuário inclusive em desenvolvimento
+      if (!LOCAL_FALLBACK_ENABLED || response.status < 500) {
         const apiError = response.status < 500 ? await readApiError(response) : undefined
         throw new ApiError(apiError || PIX_UNAVAILABLE_MESSAGE)
       }
     } catch (err) {
       // Fallback contingência local apenas em desenvolvimento
-      if (!LOCAL_FALLBACK_ENABLED) {
+      if (!LOCAL_FALLBACK_ENABLED || err instanceof ApiError) {
         throw err instanceof ApiError ? err : new ApiError(PIX_UNAVAILABLE_MESSAGE)
       }
     }
