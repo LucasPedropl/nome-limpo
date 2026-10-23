@@ -60,7 +60,7 @@ export function HeroSection({ onOpenCheckout }: HeroSectionProps) {
                   <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 stroke-[3]" />
                 </span>
                 <p className="text-xs sm:text-base text-cream leading-relaxed font-normal">
-                  <strong className="font-bold text-cream">Garantia ou Seu Dinheiro de Volta:</strong> Prazo de 7 a 10 dias úteis com garantia formal documentada.
+                  <strong className="font-bold text-cream">Garantia ou Seu Dinheiro de Volta:</strong> Prazo de 8 a 12 dias úteis com garantia formal documentada.
                 </p>
               </div>
 
@@ -169,7 +169,7 @@ export function HeroSection({ onOpenCheckout }: HeroSectionProps) {
                 </div>
                 <div className="flex flex-wrap items-center justify-between rounded-xl bg-ink/70 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-line/60 gap-x-2 gap-y-1">
                   <span className="text-cream">Prazo de Execução</span>
-                  <span className="text-cream font-mono font-medium shrink-0 whitespace-nowrap text-[11px] sm:text-sm">7 a 10 dias úteis</span>
+                  <span className="text-cream font-mono font-medium shrink-0 whitespace-nowrap text-[11px] sm:text-sm">8 a 12 dias úteis</span>
                 </div>
                 <div className="flex flex-wrap items-center justify-between rounded-xl bg-ink/70 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-line/60 gap-x-2 gap-y-1">
                   <span className="text-cream">Investimento Mensal</span>
