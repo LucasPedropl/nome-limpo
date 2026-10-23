@@ -9,14 +9,6 @@ namespace NomeLimpo.Api.Controllers;
 
 public record SolicitarOtpRequest(string Email);
 public record ValidarOtpRequest(string Email, string Codigo);
-public record IniciarPixRequest(
-    string NomeRazaoSocial,
-    string CpfCnpj,
-    string Email,
-    string Telefone,
-    string TipoPessoa,
-    decimal? Valor
-);
 public record ConcluirCheckoutRequest(
     string NomeRazaoSocial,
     string CpfCnpj,
@@ -34,21 +26,15 @@ public class CheckoutController : ControllerBase
     private static readonly ConcurrentDictionary<string, (string Code, DateTime ExpiresAt)> OtpStore = new();
     private readonly AppDbContext _db;
     private readonly IEmailService _emailService;
-    private readonly PixService _pixService;
-    private readonly IConfiguration _config;
     private readonly IWebHostEnvironment _env;
 
     public CheckoutController(
         AppDbContext db,
         IEmailService emailService,
-        PixService pixService,
-        IConfiguration config,
         IWebHostEnvironment env)
     {
         _db = db;
         _emailService = emailService;
-        _pixService = pixService;
-        _config = config;
         _env = env;
     }
 
@@ -107,31 +93,6 @@ public class CheckoutController : ControllerBase
         }
 
         return BadRequest(new { valid = false, message = "Código inválido ou não encontrado." });
-    }
-
-    [HttpPost("iniciar-pix")]
-    public IActionResult IniciarPix([FromBody] IniciarPixRequest req)
-    {
-        var valor = req.Valor ?? 100.00m;
-        var txid = "NL" + DateTime.UtcNow.ToString("yyMMddHHmmss") + new Random().Next(100, 999);
-        var chavePix = _config["PixSettings:ChavePix"] ?? "uai@uaipdv.com.br";
-        var recebedor = _config["PixSettings:Recebedor"] ?? "NOME LIMPO EXPRESS LTDA";
-        var cidade = _config["PixSettings:Cidade"] ?? "BELO HORIZONTE";
-
-        var (pixEmv, qrCodeUrl) = _pixService.GerarPixEmv(chavePix, recebedor, cidade, valor, txid);
-        var expiresAt = DateTime.UtcNow.AddMinutes(15);
-
-        return Ok(new
-        {
-            txid,
-            amount = valor,
-            pixEmv,
-            qrCodeUrl,
-            expiresAt,
-            status = "PENDING",
-            subscriptionId = $"SUB-{txid}",
-            recurrentIntervalDays = 30
-        });
     }
 
     [HttpPost("concluir")]

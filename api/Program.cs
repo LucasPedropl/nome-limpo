@@ -17,8 +17,9 @@ var sqlConn = builder.Configuration.GetConnectionString("NomeLimpo");
 string dbProviderInfo;
 if (!string.IsNullOrWhiteSpace(sqlConn))
 {
+    // Produção roda em SQL Server 2014 (v12): nível 120 impede o EF Core 8 de gerar OPENJSON
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseSqlServer(sqlConn));
+        options.UseSqlServer(sqlConn, o => o.UseCompatibilityLevel(120)));
     dbProviderInfo = "SQL Server (ConnectionStrings:NomeLimpo)";
 }
 else
@@ -157,23 +158,35 @@ using (var scope = app.Services.CreateScope())
 
     db.Database.EnsureCreated();
 
-    // 1. Admin Padrão
+    // 1. Admin inicial: credencial fixa só em Development; fora dele vem de Admin:Email / Admin:Password
     if (!db.UsuariosAdmin.Any())
     {
-        db.UsuariosAdmin.Add(new UsuarioAdmin
+        var adminEmail = app.Environment.IsDevelopment() ? "admin@nomelimpo.com.br" : app.Configuration["Admin:Email"];
+        var adminPassword = app.Environment.IsDevelopment() ? "admin123" : app.Configuration["Admin:Password"];
+
+        if (string.IsNullOrWhiteSpace(adminEmail) || string.IsNullOrWhiteSpace(adminPassword))
         {
-            Id = "usr_admin",
-            Nome = "Diretor Operacional",
-            Email = "admin@nomelimpo.com.br",
-            SenhaHash = hasher.Hash("admin123"),
-            Perfil = "Admin",
-            Ativo = true,
-            CreatedAt = DateTime.UtcNow
-        });
+            app.Logger.LogWarning("Nenhum admin cadastrado e Admin:Email/Admin:Password não configurados: admin inicial não criado.");
+        }
+        else
+        {
+            db.UsuariosAdmin.Add(new UsuarioAdmin
+            {
+                Id = "usr_admin",
+                Nome = "Diretor Operacional",
+                Email = adminEmail.Trim().ToLowerInvariant(),
+                SenhaHash = hasher.Hash(adminPassword),
+                Perfil = "Admin",
+                Ativo = true,
+                CreatedAt = DateTime.UtcNow
+            });
+            db.SaveChanges();
+            app.Logger.LogInformation("Admin inicial criado: {Email}", adminEmail.Trim().ToLowerInvariant());
+        }
     }
 
-    // 2. Seed de Clientes e Processos reais
-    if (!db.Clientes.Any())
+    // 2. Clientes, processos e cobranças de demonstração: apenas em Development
+    if (app.Environment.IsDevelopment() && !db.Clientes.Any())
     {
         var c1 = new Cliente
         {

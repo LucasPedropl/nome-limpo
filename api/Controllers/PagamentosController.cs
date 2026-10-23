@@ -439,8 +439,19 @@ public class PagamentosController : ControllerBase
         }
 
         var status = repasse.Data.Status?.ToUpperInvariant();
-        if (status == "PAID")
+        if (status == "PAID" && cobranca.Status != "Pago")
         {
+            // Webhook é anônimo e sem assinatura: só confirma se a própria Bixs disser que a fatura está paga.
+            var confirmedInvoiceId = cobranca.CoraInvoiceId ?? invoiceId;
+            var invoice = string.IsNullOrEmpty(confirmedInvoiceId)
+                ? null
+                : await _bixsService.GetPaymentInvoiceAsync(confirmedInvoiceId);
+            if (!string.Equals(invoice?.Status, "PAID", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Webhook Bixs informou PAID para {CobrancaId}, mas a fatura não foi confirmada na consulta.", cobranca.Id);
+                return Ok(new { received = true, note = "Pagamento não confirmado." });
+            }
+
             var cliente = await _db.Clientes
                 .Include(c => c.Processos)
                 .FirstOrDefaultAsync(c => c.Id == cobranca.ClienteId);

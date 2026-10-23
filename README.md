@@ -74,3 +74,4 @@ cd apps/nomelimpo/landing && npm run dev
 
 > **Credenciais da API**: nunca ficam no `appsettings*.json` (lá os campos estão vazios). Em dev, defina-as com `dotnet user-secrets set "<chave>" "<valor>"` dentro de `api/`: `Jwt:Key`, `Bixs:Email`, `Bixs:Password`, `Bixs:ApiKey`, `Bixs:Mac`, `Bixs:Source` (e os aliases `BixAPI:Email`, `BixAPI:Password`, `BixAPI:API-Key`).
 > Em produção, use variáveis de ambiente (`Jwt__Key`, `Bixs__ApiKey`, ...). Sem `Jwt:Key` a API não sobe; sem as credenciais Bixs o checkout PIX falha com erro explícito.
+> Admin inicial (fora de Development): `Admin__Email` e `Admin__Password` criam o primeiro admin quando a base não tem nenhum; sem eles nenhum admin é criado (só um aviso no log). O seed `admin@nomelimpo.com.br`/`admin123` e os clientes de demonstração existem só em Development.
