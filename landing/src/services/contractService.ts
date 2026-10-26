@@ -12,8 +12,12 @@ export interface ContractData {
   status: 'ATIVO' | 'PROCESSANDO'
 }
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5240'
+const STORAGE_CONTRACT_KEY = 'nl_active_contract'
 
+/**
+ * Contrato da assinatura depois do Pix confirmado. Sem servidor próprio, ele é montado aqui e fica
+ * salvo neste navegador; o protocolo vai também no WhatsApp do cliente.
+ */
 export const contractService = {
   async createContract(data: {
     customerName: string
@@ -24,66 +28,21 @@ export const contractService = {
     txid?: string
     paymentId?: string
   }): Promise<ContractData> {
+    // Mesmo pagamento: devolve o mesmo contrato (a tela pode chamar de novo)
+    const existing = this.getActiveContract()
+    if (existing && existing.document === data.document && existing.paymentId === data.paymentId) {
+      return existing
+    }
+
     const today = new Date()
     const targetDate = new Date()
     targetDate.setDate(targetDate.getDate() + 45)
 
-    // Tenta persistir diretamente na API do Backoffice NomeLimpo
-    try {
-      const response = await fetch(`${API_URL}/api/public/checkout/concluir`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nomeRazaoSocial: data.customerName,
-          cpfCnpj: data.document,
-          email: data.email,
-          telefone: data.phone,
-          tipoPessoa: data.document.length > 14 ? 'PJ' : 'PF',
-          dataNascimentoFundacao: data.birthDate,
-          txId: data.txid,
-          paymentId: data.paymentId,
-        }),
-      })
+    // Protocolo derivado do id do pagamento: o mesmo Pix dá sempre o mesmo número
+    const seed = (data.paymentId || data.txid || String(Date.now())).split('').reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) % 9000, 7)
+    const protocolNumber = `NL-${today.getFullYear()}-${1000 + seed}`
 
-      if (response.ok) {
-        const apiContract = await response.json()
-        const contract: ContractData = {
-          protocolNumber: apiContract.protocolNumber,
-          contractDate: apiContract.contractDate,
-          estimatedCompletionDate: apiContract.estimatedCompletionDate,
-          customerName: apiContract.customerName,
-          document: apiContract.document,
-          email: apiContract.email,
-          phone: apiContract.phone,
-          planName: apiContract.planName,
-          planAmountFormatted: apiContract.planAmountFormatted,
-          warrantyTerms: apiContract.warrantyTerms,
-          status: apiContract.status,
-        }
-
-        try {
-          localStorage.setItem('nl_active_contract', JSON.stringify(contract))
-        } catch {
-          // ignore
-        }
-
-        return contract
-      }
-    } catch {
-      // Fallback (apenas em desenvolvimento)
-    }
-
-    if (!import.meta.env.DEV) {
-      throw new Error(
-        'Pagamento recebido, mas não conseguimos carregar o seu contrato agora. Consulte a Área do Cliente com seu CPF/CNPJ em alguns minutos.'
-      )
-    }
-
-    // Fallback local se a API estiver offline (apenas em desenvolvimento)
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000)
-    const protocolNumber = `NL-${today.getFullYear()}-${randomSuffix}`
-
-    const contract: ContractData = {
+    const contract: ContractData & { paymentId?: string } = {
       protocolNumber,
       contractDate: today.toLocaleDateString('pt-BR'),
       estimatedCompletionDate: targetDate.toLocaleDateString('pt-BR'),
@@ -96,20 +55,21 @@ export const contractService = {
       warrantyTerms:
         'Garantia contratual de 45 dias úteis ou restituição de 100% dos valores pagos, caso os apontamentos não deixem de ser exibidos em consultas externas nos órgãos de proteção ao crédito.',
       status: 'ATIVO',
+      paymentId: data.paymentId,
     }
 
     try {
-      localStorage.setItem('nl_active_contract', JSON.stringify(contract))
+      localStorage.setItem(STORAGE_CONTRACT_KEY, JSON.stringify(contract))
     } catch {
-      // Ignore
+      // ignore
     }
 
     return contract
   },
 
-  getActiveContract(): ContractData | null {
+  getActiveContract(): (ContractData & { paymentId?: string }) | null {
     try {
-      const raw = localStorage.getItem('nl_active_contract')
+      const raw = localStorage.getItem(STORAGE_CONTRACT_KEY)
       return raw ? JSON.parse(raw) : null
     } catch {
       return null

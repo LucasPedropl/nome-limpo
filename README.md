@@ -1,5 +1,7 @@
 # Nome Limpo Express — Ecossistema Completo
 
+> **A landing (`landing/`) funciona sozinha**, falando direto com a Bixs (Pix e WhatsApp): veja `landing/README.md`. A `api/` e o `frontend/` (backoffice) foram criados por engano e a landing não depende deles; o serviço `nomelimpo-api` no Render pode ser desligado depois que a landing nova estiver no ar.
+
 Plataforma digital integrada para contratação e gestão do serviço de manutenção de nome limpo e regularização cadastral de CPF e CNPJ perante os órgãos externos de proteção ao crédito (Serasa Experian, SPC Brasil e Boa Vista SCPC), com modelo de assinatura mensal de R$ 100,00 via PIX e garantia documentada de 30 a 45 dias úteis (ou 100% de restituição).
 
 ---

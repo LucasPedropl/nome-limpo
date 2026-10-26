@@ -1,16 +1,17 @@
 /**
- * Serviço de envio e validação do código de confirmação do checkout (e-mail e, se ligado na API, WhatsApp).
- * A API amarra o código ao CPF/CNPJ: se o documento já tem cadastro, o código vai para o e-mail e o telefone cadastrados.
- * A validação devolve o comprovante (verificationToken) exigido para gerar o PIX.
+ * Código de confirmação do checkout, gerado no navegador e enviado pelo WhatsApp da empresa.
+ * Sem servidor a conferência também é local: confirma que o telefone é da pessoa, não é barreira
+ * contra quem mexe no navegador. Sem o WhatsApp ligado o checkout pula esta etapa.
  */
+import { maskPhone, sendWhatsAppMessage, toWhatsAppNumber, whatsappMessages } from '@/services/whatsappService'
 
 export interface TokenDispatchResult {
   success: boolean
   message: string
   expiresAt: number
-  emailDestino?: string // E-mail que recebeu o código (mascarado quando é o do cadastro)
-  whatsappDestino?: string // WhatsApp que recebeu o código (sempre mascarado); ausente se não foi por WhatsApp
-  simulatedCode?: string // Exposto pela API só em Development, para o botão de preencher
+  emailDestino?: string
+  whatsappDestino?: string // WhatsApp que recebeu o código (mascarado)
+  simulatedCode?: string // Só em desenvolvimento, para o botão de preencher
 }
 
 export interface TokenVerifyResult {
@@ -19,78 +20,93 @@ export interface TokenVerifyResult {
   verificationToken?: string
 }
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5240'
+const LIFETIME_MS = 10 * 60 * 1000
+const RESEND_COOLDOWN_MS = 60 * 1000
+const MAX_ATTEMPTS = 5
+
+interface PendingCode {
+  code: string
+  expiresAt: number
+  issuedAt: number
+  attempts: number
+}
+
+const pending = new Map<string, PendingCode>()
+const keyFor = (document: string) => document.replace(/\D/g, '')
+
+function newCode(): string {
+  const value = new Uint32Array(1)
+  crypto.getRandomValues(value)
+  return String(100000 + (value[0] % 900000))
+}
 
 export const tokenService = {
   /**
-   * Solicita o envio do código de 6 dígitos para o e-mail (e o WhatsApp) do titular
+   * Gera o código e manda para o WhatsApp informado no cadastro
    */
-  async sendToken(document: string, email: string, phone?: string): Promise<TokenDispatchResult> {
-    const cleanEmail = email.trim().toLowerCase()
+  async sendToken(document: string, _email: string, phone?: string): Promise<TokenDispatchResult> {
+    if (!toWhatsAppNumber(phone)) {
+      return { success: false, message: 'Informe um celular com WhatsApp para receber o código.', expiresAt: 0 }
+    }
 
-    try {
-      const response = await fetch(`${API_URL}/api/public/checkout/solicitar-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpfCnpj: document, email: cleanEmail, telefone: phone }),
-      })
-
-      const data = await response.json().catch(() => null)
-      if (response.ok && data) {
-        return {
-          success: true,
-          message: data.message || `Código enviado para ${cleanEmail}`,
-          expiresAt: new Date(data.expiresAt).getTime(),
-          emailDestino: data.emailDestino || undefined,
-          whatsappDestino: data.whatsappDestino || undefined,
-          simulatedCode: data.simulatedCode || undefined,
-        }
+    const key = keyFor(document)
+    const now = Date.now()
+    const current = pending.get(key)
+    // Dentro do intervalo de reenvio não manda outro
+    if (current && current.expiresAt > now && now - current.issuedAt < RESEND_COOLDOWN_MS) {
+      return {
+        success: true,
+        message: `Código enviado para o WhatsApp ${maskPhone(phone)}.`,
+        expiresAt: current.expiresAt,
+        whatsappDestino: maskPhone(phone),
+        simulatedCode: import.meta.env.DEV ? current.code : undefined,
       }
+    }
 
+    const code = newCode()
+    const result = await sendWhatsAppMessage(phone, 'Cliente', whatsappMessages.code(code))
+    if (!result.sent && !import.meta.env.DEV) {
       return {
         success: false,
-        message: data?.message || 'Não foi possível enviar o código agora. Tente novamente em alguns minutos.',
+        message: result.error || 'Não conseguimos enviar o código pelo WhatsApp agora. Tente novamente em alguns minutos.',
         expiresAt: 0,
       }
-    } catch {
-      return {
-        success: false,
-        message: 'Não foi possível enviar o código agora. Tente novamente em alguns minutos.',
-        expiresAt: 0,
-      }
+    }
+
+    const entry = { code, expiresAt: now + LIFETIME_MS, issuedAt: now, attempts: 0 }
+    pending.set(key, entry)
+    return {
+      success: true,
+      message: `Código enviado para o WhatsApp ${maskPhone(phone)}.`,
+      expiresAt: entry.expiresAt,
+      whatsappDestino: maskPhone(phone),
+      simulatedCode: import.meta.env.DEV ? code : undefined,
     }
   },
 
   /**
-   * Confere o código na API e devolve o comprovante para gerar o PIX
+   * Confere o código digitado
    */
-  async verifyToken(document: string, email: string, inputCode: string): Promise<TokenVerifyResult> {
-    const cleanEmail = email.trim().toLowerCase()
+  async verifyToken(document: string, _email: string, inputCode: string): Promise<TokenVerifyResult> {
     const cleanCode = inputCode.trim().replace(/\D/g, '')
-
     if (cleanCode.length !== 6) {
       return { valid: false, message: 'O código deve ter exatamente 6 dígitos numéricos.' }
     }
 
-    try {
-      const response = await fetch(`${API_URL}/api/public/checkout/validar-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpfCnpj: document, email: cleanEmail, codigo: cleanCode }),
-      })
-
-      const data = await response.json().catch(() => null)
-      if (response.ok && data?.verificationToken) {
-        return {
-          valid: true,
-          message: data.message || 'Código validado com sucesso!',
-          verificationToken: data.verificationToken,
-        }
-      }
-
-      return { valid: false, message: data?.message || 'Código inválido ou expirado.' }
-    } catch {
-      return { valid: false, message: 'Não foi possível validar o código agora. Tente novamente em alguns minutos.' }
+    const key = keyFor(document)
+    const entry = pending.get(key)
+    if (!entry) return { valid: false, message: 'Código inválido ou não encontrado. Solicite um novo.' }
+    if (Date.now() > entry.expiresAt) {
+      pending.delete(key)
+      return { valid: false, message: 'Código expirado. Solicite um novo.' }
     }
+    if (entry.code !== cleanCode) {
+      entry.attempts += 1
+      if (entry.attempts >= MAX_ATTEMPTS) pending.delete(key)
+      return { valid: false, message: 'Código inválido. Confira a mensagem no WhatsApp.' }
+    }
+
+    pending.delete(key)
+    return { valid: true, message: 'Código validado com sucesso!', verificationToken: `whatsapp:${key}` }
   },
 }

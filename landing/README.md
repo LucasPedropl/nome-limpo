@@ -50,7 +50,9 @@ O relatório técnico completo para a diretoria e equipe de engenharia está dis
 [`docs/avaliacao_integracao_pagweb.md`](./docs/avaliacao_integracao_pagweb.md).
 
 Principais conclusões:
-- **PIX Direto:** O frontend abstrai a geração EMV e polling em `src/services/pagwebService.ts`. Recomenda-se criar um endpoint público desacoplado no backend PagWeb (`/api/v1/public/subscriptions/pix`) sem dependência de endereço prévio.
+- **PIX Direto:** a landing não tem API própria: cria a fatura Pix e consulta o status direto na Bixs pelo navegador (`src/services/bixsApi.ts` e `src/services/pagwebService.ts`). A consulta de status usa o `id` (UUID) da fatura; com o `cora_invoice_id` a Bixs responde 500.
+- **WhatsApp:** código de verificação, dados do Pix e confirmação saem pela instância de WhatsApp da conta Bixs do NomeLimpo (`src/services/whatsappService.ts`). Ligado = número conectado; desligado = desconectado. Conectar/desligar na página secreta `/#/whatsapp-nomelimpo-8317` (fora dos links do site, noindex). Sem número conectado o checkout pula o código e vai direto ao Pix.
+- **Credenciais:** `VITE_BIXS_EMAIL`, `VITE_BIXS_PASSWORD` e `VITE_BIXS_API_KEY` nas variáveis da Vercel (veja `.env.example`). Ficam visíveis no bundle (risco aceito); nunca no git.
 - **Recorrência:** Gestão via régua de notificações automáticas (D-3, D0, D+3) com PIX avulso enviado por WhatsApp e E-mail até a consolidação do Pix Automático no BACEN.
 - **Inadimplência:** Tolerância de 5 dias úteis, suspensão preventiva no D+7 e cancelamento no D+30.
 

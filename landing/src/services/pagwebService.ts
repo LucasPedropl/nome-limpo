@@ -1,4 +1,12 @@
-import { generatePixEmv, DEFAULT_PIX_SUBSCRIPTION } from '@/lib/pix'
+import { bixsRequest, BixsError } from '@/services/bixsApi'
+import { sendWhatsAppMessage, whatsappMessages } from '@/services/whatsappService'
+
+/**
+ * Pix da 1ª mensalidade direto no gateway Bixs (fatura Cora), sem servidor próprio.
+ * O status é consultado na própria Bixs; a sessão do assinante fica só neste navegador.
+ */
+
+export const MONTHLY_AMOUNT = 100
 
 export interface CreatePixSubscriptionParams {
   customerName: string
@@ -6,31 +14,19 @@ export interface CreatePixSubscriptionParams {
   email: string
   phone: string
   birthDate?: string
-  amount?: number
-  verificationToken: string // Comprovante do código confirmado no e-mail (validar-otp)
+  verificationToken: string // Comprovante do código confirmado no WhatsApp ('' quando a etapa está desligada)
 }
 
 export interface PixChargeResponse {
-  paymentId: string
-  txid: string
+  paymentId: string // id (UUID) da fatura na Bixs: a rota de status só aceita ele, não o cora_invoice_id
+  coraInvoiceId?: string
+  txid: string // external_code
   amount: number
   pixEmv: string
   qrCodeUrl: string
   expiresAt: string
   status: 'PENDING' | 'PAID' | 'EXPIRED'
-  subscriptionId?: string
-  coraInvoiceId?: string
   recurrentIntervalDays: number
-  protocolo?: string
-  token?: string
-  cliente?: {
-    id: string
-    nomeRazaoSocial: string
-    cpfCnpj: string
-    email: string
-    telefone: string
-    status: string
-  }
 }
 
 export interface PaymentStatusCheckResult {
@@ -40,55 +36,67 @@ export interface PaymentStatusCheckResult {
   isPaid: boolean
   paidAt?: string
   amount: number
-  protocolo?: string
-  token?: string
-  cliente?: {
-    id: string
-    nomeRazaoSocial: string
-    cpfCnpj: string
-    email: string
-    telefone: string
-    status: string
-  }
 }
 
 export interface ClientSession {
-  token: string
   protocolo: string
   cliente: {
-    id: string
     nomeRazaoSocial: string
     cpfCnpj: string
     email: string
     telefone: string
-    status: string
   }
   loggedAt: string
 }
 
+interface BixsInvoice {
+  id?: string
+  amount?: number
+  total_paid?: number
+  cora_invoice_id?: string
+  external_code?: string
+  pix_emv?: string
+  status?: string
+  paid_at?: string
+}
+
 const STORAGE_PAYMENTS_KEY = 'nl_payments_state'
 const STORAGE_SESSION_KEY = 'nl_client_session'
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5240'
+const PIX_WINDOW_MS = 25 * 60 * 1000
 
-// Contingência local (PIX/pagamento simulado) só existe em desenvolvimento; em produção a falha chega ao usuário
-const LOCAL_FALLBACK_ENABLED = import.meta.env.DEV
 export const PIX_UNAVAILABLE_MESSAGE = 'Não foi possível gerar o Pix agora. Tente novamente em alguns minutos.'
 
 // Erro com mensagem pronta para exibir ao usuário
 export class ApiError extends Error {}
 
-async function readApiError(response: Response): Promise<string | undefined> {
+type StoredCharge = PixChargeResponse & { document: string; customerName: string; phone: string; createdAt: number }
+
+function readStoredCharges(): Record<string, StoredCharge> {
   try {
-    const data = await response.json()
-    return data?.error || data?.message
+    return JSON.parse(localStorage.getItem(STORAGE_PAYMENTS_KEY) || '{}')
   } catch {
-    return undefined
+    return {}
   }
+}
+
+function storeCharge(charge: StoredCharge) {
+  try {
+    const stored = readStoredCharges()
+    stored[charge.paymentId] = charge
+    localStorage.setItem(STORAGE_PAYMENTS_KEY, JSON.stringify(stored))
+  } catch {
+    // ignore
+  }
+}
+
+function addDays(days: number): string {
+  const date = new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+  return date.toISOString().slice(0, 10)
 }
 
 export const pagwebService = {
   /**
-   * Salva a sessão autenticada do assinante localmente
+   * Salva a sessão do assinante neste navegador (cabeçalho e Área do Cliente)
    */
   saveSession(session: ClientSession) {
     try {
@@ -100,9 +108,6 @@ export const pagwebService = {
     }
   },
 
-  /**
-   * Obtém a sessão atual do assinante
-   */
   getSession(): ClientSession | null {
     try {
       const raw = localStorage.getItem(STORAGE_SESSION_KEY)
@@ -112,9 +117,6 @@ export const pagwebService = {
     }
   },
 
-  /**
-   * Encerra a sessão do assinante
-   */
   clearSession() {
     try {
       localStorage.removeItem(STORAGE_SESSION_KEY)
@@ -125,293 +127,153 @@ export const pagwebService = {
   },
 
   /**
-   * Gera cobrança PIX imediata da 1ª mensalidade conectando à arquitetura Bixs Cora Gateway na API
+   * Gera a fatura Pix da 1ª mensalidade na Bixs e manda os dados do Pix no WhatsApp (se ligado)
    */
   async createPixCharge(params: CreatePixSubscriptionParams): Promise<PixChargeResponse> {
-    const amount = params.amount || DEFAULT_PIX_SUBSCRIPTION.amount
+    const document = params.document.replace(/\D/g, '')
 
+    // Mesmo CPF/CNPJ neste navegador nos últimos 25 min: reaproveita o Pix em vez de gerar outro
+    const reuse = Object.values(readStoredCharges()).find(
+      (c) => c.document === document && c.status === 'PENDING' && Date.now() - c.createdAt < PIX_WINDOW_MS
+    )
+    if (reuse) return reuse
+
+    const externalCode = `nl_${document}_${Math.floor(Date.now() / 1000)}`
+    let invoice: BixsInvoice
     try {
-      const response = await fetch(`${API_URL}/api/public/pagamentos/iniciar`, {
+      invoice = await bixsRequest<BixsInvoice>('v1/api/payment/invoices', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nomeRazaoSocial: params.customerName,
-          cpfCnpj: params.document,
-          email: params.email,
-          telefone: params.phone,
-          tipoPessoa: params.document.replace(/\D/g, '').length > 11 ? 'PJ' : 'PF',
-          dataNascimentoFundacao: params.birthDate,
-          verificationToken: params.verificationToken,
-          // O valor da mensalidade é definido pela API
-        }),
+        withApiKey: true,
+        body: {
+          amount: MONTHLY_AMOUNT * 100,
+          payment_type: 'pix',
+          external_code: externalCode,
+          due_date: addDays(3),
+          service_name: '1ª Mensalidade - Nome Limpo Express',
+          service_desc: 'Assinatura do serviço de manutenção e regularização de nome limpo para CPF/CNPJ.',
+          customer_payment: {
+            name: params.customerName.trim(),
+            email: params.email.trim().toLowerCase(),
+            phone: params.phone.replace(/\D/g, '') || '31999999999',
+            document,
+            document_type: document.length > 11 ? 'CNPJ' : 'CPF',
+            // A Bixs exige endereço e o checkout não pede: endereço comercial padrão
+            address: {
+              street: 'Av. Principal',
+              number: '100',
+              district: 'Centro',
+              city: 'Belo Horizonte',
+              state: 'MG',
+              zip_code: '30140071',
+              country: 'BRA',
+            },
+          },
+        },
       })
-
-      if (response.ok) {
-        const data = await response.json()
-        const charge: PixChargeResponse = {
-          paymentId: data.paymentId || data.txId,
-          txid: data.txId,
-          amount: data.amount,
-          pixEmv: data.pixEmv,
-          qrCodeUrl: data.qrCodeUrl,
-          expiresAt: data.expiresAt || new Date(Date.now() + 25 * 60 * 1000).toISOString(),
-          status: data.status === 'PAID' ? 'PAID' : 'PENDING',
-          coraInvoiceId: data.coraInvoiceId,
-          subscriptionId: data.assinaturaId,
-          recurrentIntervalDays: 30,
-        }
-
-        try {
-          const stored = JSON.parse(localStorage.getItem(STORAGE_PAYMENTS_KEY) || '{}')
-          stored[data.txId] = charge
-          localStorage.setItem(STORAGE_PAYMENTS_KEY, JSON.stringify(stored))
-        } catch {
-          // ignore
-        }
-
-        return charge
-      }
-
-      // Recusa da API (ex.: código do e-mail não confirmado) chega ao usuário inclusive em desenvolvimento
-      if (!LOCAL_FALLBACK_ENABLED || response.status < 500) {
-        const apiError = response.status < 500 ? await readApiError(response) : undefined
-        throw new ApiError(apiError || PIX_UNAVAILABLE_MESSAGE)
-      }
     } catch (err) {
-      // Fallback contingência local apenas em desenvolvimento
-      if (!LOCAL_FALLBACK_ENABLED || err instanceof ApiError) {
-        throw err instanceof ApiError ? err : new ApiError(PIX_UNAVAILABLE_MESSAGE)
+      throw new ApiError(err instanceof BixsError ? `${PIX_UNAVAILABLE_MESSAGE} (${err.message})` : PIX_UNAVAILABLE_MESSAGE)
+    }
+
+    if (!invoice?.pix_emv) {
+      throw new ApiError(PIX_UNAVAILABLE_MESSAGE)
+    }
+
+    // A criação devolve a fatura com o id; se vier sem, acha na listagem (mais recentes primeiro)
+    let invoiceId = invoice.id
+    if (!invoiceId) {
+      try {
+        const list = await bixsRequest<{ items?: BixsInvoice[] }>('v1/api/payment/invoices', { withApiKey: true })
+        invoiceId = list?.items?.find(
+          (i) => i.external_code === externalCode || (invoice.cora_invoice_id && i.cora_invoice_id === invoice.cora_invoice_id)
+        )?.id
+      } catch {
+        // sem id o Pix ainda é pago normalmente; só a confirmação automática na tela fica indisponível
       }
     }
 
-    // Fallback local caso a API não esteja rodando (apenas em desenvolvimento)
-    const randomHex = Math.random().toString(36).substring(2, 10).toUpperCase()
-    const txid = `nl_local_${Date.now().toString().slice(-6)}${randomHex}`
-    const paymentId = `pay_${randomHex.toLowerCase()}`
-
-    const pixEmv = generatePixEmv({
-      pixKey: DEFAULT_PIX_SUBSCRIPTION.key,
-      merchantName: DEFAULT_PIX_SUBSCRIPTION.name,
-      merchantCity: DEFAULT_PIX_SUBSCRIPTION.city,
-      amount,
-      txid,
-    })
-
-    const expiresAt = new Date(Date.now() + 25 * 60 * 1000).toISOString()
-
-    const charge: PixChargeResponse = {
-      paymentId,
-      txid,
-      amount,
-      pixEmv,
-      qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixEmv)}`,
-      expiresAt,
+    const charge: StoredCharge = {
+      paymentId: invoiceId || externalCode,
+      coraInvoiceId: invoice.cora_invoice_id,
+      txid: invoice.external_code || externalCode,
+      amount: MONTHLY_AMOUNT,
+      pixEmv: invoice.pix_emv,
+      qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(invoice.pix_emv)}`,
+      expiresAt: new Date(Date.now() + PIX_WINDOW_MS).toISOString(),
       status: 'PENDING',
       recurrentIntervalDays: 30,
+      document,
+      customerName: params.customerName.trim(),
+      phone: params.phone,
+      createdAt: Date.now(),
     }
+    storeCharge(charge)
 
-    try {
-      const stored = JSON.parse(localStorage.getItem(STORAGE_PAYMENTS_KEY) || '{}')
-      stored[txid] = charge
-      localStorage.setItem(STORAGE_PAYMENTS_KEY, JSON.stringify(stored))
-    } catch {
-      // ignore
-    }
+    // Dados do Pix também no WhatsApp (não segura a tela do Pix)
+    void (async () => {
+      const first = await sendWhatsAppMessage(params.phone, charge.customerName, whatsappMessages.pix(charge.customerName, charge.amount))
+      if (first.sent) await sendWhatsAppMessage(params.phone, charge.customerName, charge.pixEmv)
+    })()
 
     return charge
   },
 
   /**
-   * Consulta o status do pagamento em tempo real (polling oficial no Bixs Gateway)
+   * Consulta a fatura na Bixs (polling da tela do Pix)
    */
   async checkPaymentStatus(txid: string, paymentId?: string): Promise<PaymentStatusCheckResult> {
-    const queryId = paymentId || txid
+    const id = paymentId || txid
+    const stored = readStoredCharges()[id]
 
+    let invoice: BixsInvoice
     try {
-      const response = await fetch(`${API_URL}/api/public/pagamentos/${encodeURIComponent(queryId)}/status`)
-      if (response.ok) {
-        const data = await response.json()
-        const isPaid = data.isPaid || data.status === 'PAID'
-
-        if (isPaid && data.token && data.cliente) {
-          this.saveSession({
-            token: data.token,
-            protocolo: data.protocolo || `NL-${new Date().getFullYear()}-0001`,
-            cliente: data.cliente,
-            loggedAt: new Date().toISOString(),
-          })
-        }
-
-        return {
-          paymentId: data.paymentId || queryId,
-          txId: data.txId || txid,
-          status: isPaid ? 'PAID' : 'PENDING',
-          isPaid,
-          paidAt: data.paidAt,
-          amount: data.amount || 100,
-          protocolo: data.protocolo,
-          token: data.token,
-          cliente: data.cliente,
-        }
-      }
+      invoice = await bixsRequest<BixsInvoice>(`v1/api/payment/invoices/${encodeURIComponent(id)}`, { withApiKey: true })
     } catch {
-      // Fallback storage local (apenas em desenvolvimento)
-    }
-
-    if (!LOCAL_FALLBACK_ENABLED) {
       throw new ApiError('Não foi possível consultar o pagamento agora. Tente novamente em alguns instantes.')
     }
 
-    try {
-      const stored = JSON.parse(localStorage.getItem(STORAGE_PAYMENTS_KEY) || '{}')
-      if (stored[txid]) {
-        const isPaid = stored[txid].status === 'PAID'
-        return {
-          paymentId: stored[txid].paymentId || txid,
-          txId: txid,
-          status: stored[txid].status,
-          isPaid,
-          amount: stored[txid].amount,
-          protocolo: stored[txid].protocolo,
-          token: stored[txid].token,
-          cliente: stored[txid].cliente,
-        }
-      }
-    } catch {
-      // ignore
+    const expectedCents = (stored?.amount ?? MONTHLY_AMOUNT) * 100
+    const paidCents = invoice?.total_paid || invoice?.amount || 0
+    const isPaid = (invoice?.status || '').toUpperCase() === 'PAID' && paidCents >= expectedCents
+
+    if (isPaid && stored && stored.status !== 'PAID') {
+      storeCharge({ ...stored, status: 'PAID' })
     }
 
     return {
-      paymentId: queryId,
-      txId: txid,
-      status: 'PENDING',
-      isPaid: false,
-      amount: 100,
+      paymentId: id,
+      txId: invoice?.external_code || txid,
+      status: isPaid ? 'PAID' : 'PENDING',
+      isPaid,
+      paidAt: invoice?.paid_at,
+      amount: paidCents / 100 || MONTHLY_AMOUNT,
     }
   },
 
   /**
-   * Simulação / Confirmação imediata no ambiente de teste (idêntico ao Contratos confirmPaymentTest)
+   * Confirmação imediata para testar a tela (só em desenvolvimento: não passa pela Bixs)
    */
   async simulatePaymentApproval(txid: string, paymentId?: string): Promise<PaymentStatusCheckResult> {
-    const queryId = paymentId || txid
-
-    if (!LOCAL_FALLBACK_ENABLED) {
+    if (!import.meta.env.DEV) {
       throw new ApiError('Confirmação de teste indisponível em produção.')
     }
-
-    try {
-      const response = await fetch(`${API_URL}/api/public/pagamentos/${encodeURIComponent(queryId)}/confirm-test`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.token && data.cliente) {
-          this.saveSession({
-            token: data.token,
-            protocolo: data.protocolo || `NL-${new Date().getFullYear()}-0001`,
-            cliente: data.cliente,
-            loggedAt: new Date().toISOString(),
-          })
-        }
-
-        return {
-          paymentId: data.paymentId || queryId,
-          txId: data.txId || txid,
-          status: 'PAID',
-          isPaid: true,
-          amount: data.amount || 100,
-          protocolo: data.protocolo,
-          token: data.token,
-          cliente: data.cliente,
-        }
-      }
-    } catch {
-      // Contingência local
-    }
-
-    // Fallback simulado local
-    const mockProtocolo = `NL-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
-    const mockCliente = {
-      id: 'cli_demo',
-      nomeRazaoSocial: 'Cliente Assinante',
-      cpfCnpj: '000.000.000-00',
-      email: 'cliente@nomelimpo.com.br',
-      telefone: '31999999999',
-      status: 'Ativo',
-    }
-
-    this.saveSession({
-      token: 'jwt_mock_token_demo',
-      protocolo: mockProtocolo,
-      cliente: mockCliente,
-      loggedAt: new Date().toISOString(),
-    })
-
-    return {
-      paymentId: queryId,
-      txId: txid,
-      status: 'PAID',
-      isPaid: true,
-      amount: 100,
-      protocolo: mockProtocolo,
-      token: 'jwt_mock_token_demo',
-      cliente: mockCliente,
-    }
+    const id = paymentId || txid
+    const stored = readStoredCharges()[id]
+    if (stored) storeCharge({ ...stored, status: 'PAID' })
+    return { paymentId: id, txId: txid, status: 'PAID', isPaid: true, amount: MONTHLY_AMOUNT }
   },
 
   /**
-   * Login do cliente, 1ª etapa: envia um código de 6 dígitos para o e-mail cadastrado (CPF/CNPJ, e-mail ou protocolo)
+   * Mensagem de pagamento confirmado no WhatsApp, uma vez por fatura
    */
-  async solicitarCodigoLogin(termo: string): Promise<{ message: string; simulatedCode?: string }> {
-    let response: Response
+  async notifyPaymentConfirmed(paymentId: string, protocol: string, estimatedDate: string) {
+    const stored = readStoredCharges()[paymentId]
+    const flag = `nl_whatsapp_pago_${paymentId}`
     try {
-      response = await fetch(`${API_URL}/api/auth/cliente-login/solicitar-codigo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpfCnpj: termo, email: termo, protocolo: termo }),
-      })
+      if (!stored || localStorage.getItem(flag)) return
+      localStorage.setItem(flag, '1')
     } catch {
-      throw new ApiError('Não foi possível enviar o código agora. Tente novamente em alguns minutos.')
+      return
     }
-
-    if (!response.ok) {
-      throw new ApiError((await readApiError(response)) || 'Não foi possível enviar o código agora.')
-    }
-
-    const data = await response.json()
-    return { message: data.message, simulatedCode: data.simulatedCode || undefined }
-  },
-
-  /**
-   * Login do cliente, 2ª etapa: confere o código recebido no e-mail e salva a sessão
-   */
-  async loginCliente(termo: string, codigo: string): Promise<ClientSession> {
-    let response: Response
-    try {
-      response = await fetch(`${API_URL}/api/auth/cliente-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpfCnpj: termo, email: termo, protocolo: termo, codigo }),
-      })
-    } catch {
-      throw new ApiError('Não foi possível entrar agora. Tente novamente em alguns minutos.')
-    }
-
-    if (!response.ok) {
-      throw new ApiError((await readApiError(response)) || 'Código inválido ou expirado.')
-    }
-
-    const data = await response.json()
-    const session: ClientSession = {
-      token: data.token,
-      protocolo: data.protocolo,
-      cliente: data.cliente,
-      loggedAt: new Date().toISOString(),
-    }
-    this.saveSession(session)
-    return session
+    await sendWhatsAppMessage(stored.phone, stored.customerName, whatsappMessages.paid(stored.customerName, protocol, estimatedDate))
   },
 }

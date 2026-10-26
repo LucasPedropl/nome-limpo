@@ -26,7 +26,7 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
     return () => clearInterval(timer)
   }, [timeLeft, isPaid])
 
-  // Polling automático a cada 3 segundos consultando o Gateway Bixs
+  // Polling automático a cada 5 segundos consultando a fatura direto na Bixs
   useEffect(() => {
     if (isPaid) return
 
@@ -43,7 +43,7 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
       } catch {
         // Silencioso no polling contínuo
       }
-    }, 3000)
+    }, 5000)
 
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current)
@@ -255,7 +255,7 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
       {/* Aviso de Confirmação Automática */}
       <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-cream-dim">
         <ShieldCheck className="h-4 w-4 text-signal shrink-0" />
-        <span>Assim que o pagamento for liquidado, você será logado diretamente no sistema.</span>
+        <span>Assim que o pagamento for liquidado, sua assinatura é ativada na hora.</span>
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Step1RegisterForm, type RegistrationFormData } from './Step1RegisterForm'
@@ -13,10 +13,7 @@ import {
 } from '@/services/pagwebService'
 import { contractService, type ContractData } from '@/services/contractService'
 import { tokenService } from '@/services/tokenService'
-
-// VITE_CHECKOUT_EXIGIR_EMAIL=false oculta a etapa do código no e-mail (demonstração sem SMTP).
-// A API precisa estar com Checkout__ExigirVerificacaoEmail=false, senão recusa o PIX sem o comprovante.
-const EXIGIR_VERIFICACAO_EMAIL = import.meta.env.VITE_CHECKOUT_EXIGIR_EMAIL !== 'false'
+import { isWhatsAppOn } from '@/services/whatsappService'
 
 interface CheckoutModalProps {
   isOpen: boolean
@@ -33,11 +30,24 @@ export function CheckoutModal({
 }: CheckoutModalProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [formData, setFormData] = useState<RegistrationFormData | null>(null)
-  const [otpDispatch, setOtpDispatch] = useState<{ emailDestino?: string; whatsappDestino?: string; simulatedCode?: string } | null>(null)
+  const [otpDispatch, setOtpDispatch] = useState<{ whatsappDestino?: string; simulatedCode?: string } | null>(null)
   const [pixCharge, setPixCharge] = useState<PixChargeResponse | null>(null)
   const [contract, setContract] = useState<ContractData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  // Etapa do código só existe com o WhatsApp da empresa conectado (ligado na página secreta)
+  const [codeStepEnabled, setCodeStepEnabled] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) return
+    let active = true
+    isWhatsAppOn().then((on) => {
+      if (active) setCodeStepEnabled(on)
+    })
+    return () => {
+      active = false
+    }
+  }, [isOpen])
 
   // Reseta ao fechar
   const handleClose = () => {
@@ -52,7 +62,7 @@ export function CheckoutModal({
     }, 300)
   }
 
-  // Gera a cobrança PIX imediata via Bixs Cora Gateway e vai para o pagamento
+  // Gera a cobrança PIX na Bixs e vai para o pagamento
   const generatePixCharge = async (data: RegistrationFormData, verificationToken: string) => {
     const charge = await pagwebService.createPixCharge({
       customerName: data.customerName,
@@ -66,14 +76,15 @@ export function CheckoutModal({
     setStep(3)
   }
 
-  // Passo 1 -> Passo 2 (Envia o código por e-mail e/ou WhatsApp; CPF/CNPJ já cadastrado recebe nos contatos do cadastro)
+  // Passo 1 -> Passo 2 (código no WhatsApp) ou direto para o PIX quando o WhatsApp está desligado
   const handleRegisterSubmit = async (data: RegistrationFormData) => {
     setIsLoading(true)
     setErrorMessage('')
     try {
       setFormData(data)
-      if (!EXIGIR_VERIFICACAO_EMAIL) {
-        // Etapa do e-mail desligada: direto para o PIX
+      const whatsappOn = await isWhatsAppOn()
+      setCodeStepEnabled(whatsappOn)
+      if (!whatsappOn) {
         await generatePixCharge(data, '')
         return
       }
@@ -82,7 +93,7 @@ export function CheckoutModal({
         setErrorMessage(res.message)
         return
       }
-      setOtpDispatch({ emailDestino: res.emailDestino, whatsappDestino: res.whatsappDestino, simulatedCode: res.simulatedCode })
+      setOtpDispatch({ whatsappDestino: res.whatsappDestino, simulatedCode: res.simulatedCode })
       setStep(2)
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : PIX_UNAVAILABLE_MESSAGE)
@@ -91,7 +102,7 @@ export function CheckoutModal({
     }
   }
 
-  // Passo 2 -> Passo 3 (Código confirmado: gera cobrança PIX imediata via Bixs Cora Gateway)
+  // Passo 2 -> Passo 3 (Código confirmado: gera cobrança PIX)
   const handleCodeVerified = async (verificationToken: string) => {
     if (!formData) return
     setIsLoading(true)
@@ -105,15 +116,13 @@ export function CheckoutModal({
     }
   }
 
-  // Passo 3 -> Passo 4 (Pagamento Confirmado no Gateway; o login é na Área do Cliente com código no e-mail)
+  // Passo 3 -> Passo 4 (Pagamento confirmado na Bixs)
   const handlePaymentSuccess = async (statusResult?: PaymentStatusCheckResult) => {
     if (!formData) return
     setIsLoading(true)
     setErrorMessage('')
     try {
-      const protocolo = statusResult?.protocolo || pixCharge?.protocolo
-      const token = statusResult?.token || pixCharge?.token
-
+      const paymentId = statusResult?.paymentId || pixCharge?.paymentId
       const newContract = await contractService.createContract({
         customerName: formData.customerName,
         document: formData.document,
@@ -121,23 +130,23 @@ export function CheckoutModal({
         phone: formData.phone,
         birthDate: formData.birthDate,
         txid: pixCharge?.txid,
-        paymentId: statusResult?.paymentId || pixCharge?.paymentId,
+        paymentId,
       })
-
-      if (protocolo) {
-        newContract.protocolNumber = protocolo
-      }
-
       setContract(newContract)
 
-      // Garante que a sessão autenticada está salva
-      if (token && statusResult?.cliente) {
-        pagwebService.saveSession({
-          token,
-          protocolo: newContract.protocolNumber,
-          cliente: statusResult.cliente,
-          loggedAt: new Date().toISOString(),
-        })
+      pagwebService.saveSession({
+        protocolo: newContract.protocolNumber,
+        cliente: {
+          nomeRazaoSocial: formData.customerName,
+          cpfCnpj: formData.document,
+          email: formData.email,
+          telefone: formData.phone,
+        },
+        loggedAt: new Date().toISOString(),
+      })
+
+      if (paymentId) {
+        void pagwebService.notifyPaymentConfirmed(paymentId, newContract.protocolNumber, newContract.estimatedCompletionDate)
       }
 
       setStep(4)
@@ -159,9 +168,9 @@ export function CheckoutModal({
     }
   }
 
-  // Sem a etapa do e-mail o PIX vira a etapa 2 de 2
-  const totalSteps = EXIGIR_VERIFICACAO_EMAIL ? 3 : 2
-  const displayStep = !EXIGIR_VERIFICACAO_EMAIL && step === 3 ? 2 : step
+  // Sem a etapa do código o PIX vira a etapa 2 de 2
+  const totalSteps = codeStepEnabled ? 3 : 2
+  const displayStep = !codeStepEnabled && step === 3 ? 2 : step
 
   const stepTitles = {
     1: 'Assinar Nome Limpo — Dados do Titular',
@@ -183,7 +192,7 @@ export function CheckoutModal({
         <div className="mb-6">
           <div className="flex items-center justify-between text-[11px] font-mono text-cream-dim mb-2">
             <span className={step >= 1 ? 'text-brand-light font-bold' : ''}>1. Dados do Titular</span>
-            {EXIGIR_VERIFICACAO_EMAIL && (
+            {codeStepEnabled && (
               <span className={step >= 2 ? 'text-brand-light font-bold' : ''}>2. Código</span>
             )}
             <span className={step >= 3 ? 'text-brand-light font-bold' : ''}>
@@ -216,7 +225,7 @@ export function CheckoutModal({
           initialData={formData}
           onSubmit={handleRegisterSubmit}
           isLoading={isLoading}
-          submitLabel={EXIGIR_VERIFICACAO_EMAIL ? undefined : 'Gerar PIX de Pagamento'}
+          submitLabel={codeStepEnabled ? 'Receber Código no WhatsApp' : 'Gerar PIX de Pagamento'}
         />
       )}
 
@@ -225,7 +234,6 @@ export function CheckoutModal({
           document={formData.document}
           email={formData.email}
           phone={formData.phone}
-          emailDestino={otpDispatch?.emailDestino}
           whatsappDestino={otpDispatch?.whatsappDestino}
           simulatedCode={otpDispatch?.simulatedCode}
           onVerified={handleCodeVerified}
