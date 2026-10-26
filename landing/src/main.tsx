@@ -1,7 +1,7 @@
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
-import { WhatsAppConnectPage, WHATSAPP_PAGE_HASH } from './pages/WhatsAppConnectPage'
+import { WhatsAppConnectPage, WHATSAPP_PAGE_PATHS } from './pages/WhatsAppConnectPage'
 import './index.css'
 
 const rootElement = document.getElementById('root')
@@ -20,8 +20,9 @@ function Root() {
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
-  // Aceita também o endereço sem "#" (/whatsapp-nomelimpo-8317, reescrito no vercel.json)
-  const isWhatsAppPage = hash === WHATSAPP_PAGE_HASH || window.location.pathname === WHATSAPP_PAGE_HASH.slice(1)
+  // Aceita com e sem "#" e o atalho /whatsapp (igual ao site da Bixs); os caminhos sem # são reescritos no vercel.json
+  const path = window.location.pathname.replace(/\/$/, '')
+  const isWhatsAppPage = WHATSAPP_PAGE_PATHS.some((p) => hash === `#${p}` || path === p)
   return isWhatsAppPage ? <WhatsAppConnectPage /> : <App />
 }
 

@@ -14,8 +14,8 @@ import {
   type WhatsAppInstance,
 } from '@/services/whatsappService'
 
-/** Endereço da página (não aparece em nenhum link do site). */
-export const WHATSAPP_PAGE_HASH = '#/whatsapp-nomelimpo-8317'
+/** Endereços da página (não aparecem em nenhum link do site); valem com e sem # na frente. */
+export const WHATSAPP_PAGE_PATHS = ['/whatsapp-nomelimpo-8317', '/whatsapp']
 
 function formatPhone(phone?: string): string {
   const d = (phone || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '')
