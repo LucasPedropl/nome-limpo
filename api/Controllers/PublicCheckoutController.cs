@@ -9,7 +9,7 @@ using NomeLimpo.Api.Services;
 
 namespace NomeLimpo.Api.Controllers;
 
-public record SolicitarOtpRequest(string? CpfCnpj, string Email);
+public record SolicitarOtpRequest(string? CpfCnpj, string Email, string? Telefone);
 public record ValidarOtpRequest(string? CpfCnpj, string Email, string Codigo);
 // Os dados cadastrais vêm da cobrança já paga; do request só valem o identificador do pagamento e o CPF/CNPJ do titular
 public record ConcluirCheckoutRequest(
@@ -27,24 +27,28 @@ public class CheckoutController : ControllerBase
     private readonly OtpService _otp;
     private readonly IWebHostEnvironment _env;
     private readonly TokenService _tokenService;
+    private readonly WhatsAppService _whatsApp;
 
     public CheckoutController(
         AppDbContext db,
         IEmailService emailService,
         OtpService otp,
         IWebHostEnvironment env,
-        TokenService tokenService)
+        TokenService tokenService,
+        WhatsAppService whatsApp)
     {
         _db = db;
         _emailService = emailService;
         _otp = otp;
         _env = env;
         _tokenService = tokenService;
+        _whatsApp = whatsApp;
     }
 
     /// <summary>
-    /// 1ª etapa do checkout: envia o código de 6 dígitos. CPF/CNPJ já cadastrado recebe no e-mail que está no cadastro,
-    /// nunca no e-mail digitado — é assim que o titular prova que é ele antes de gerar cobrança no nome dele.
+    /// 1ª etapa do checkout: envia o código de 6 dígitos por e-mail e, com o WhatsApp ligado no backoffice, também por WhatsApp.
+    /// CPF/CNPJ já cadastrado recebe no e-mail e no telefone que estão no cadastro, nunca nos digitados — é assim que o
+    /// titular prova que é ele antes de gerar cobrança no nome dele.
     /// </summary>
     [HttpPost("solicitar-otp")]
     [AllowAnonymous]
@@ -54,25 +58,47 @@ public class CheckoutController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Email) || (doc.Length != 11 && doc.Length != 14))
             return BadRequest(new { message = "CPF/CNPJ e e-mail são obrigatórios." });
 
-        // Sem SMTP o código não chega a ninguém: melhor avisar do que dizer que foi enviado
-        if (!_emailService.IsConfigured && !_env.IsDevelopment())
-            return StatusCode(503, new { message = "O envio de e-mail está indisponível no momento. Tente novamente mais tarde." });
+        var (destino, telefoneDestino, cadastroExistente) = await ResolverDestinoAsync(doc, req.Email, req.Telefone);
+        var porEmail = _emailService.IsConfigured;
+        var porWhatsApp = WhatsAppService.NumeroWhatsApp(telefoneDestino) is not null && await _whatsApp.IsAtivoAsync();
 
-        var (destino, cadastroExistente) = await ResolverEmailDestinoAsync(doc, req.Email);
+        // Sem SMTP e sem WhatsApp o código não chega a ninguém: melhor avisar do que dizer que foi enviado
+        if (!porEmail && !porWhatsApp && !_env.IsDevelopment())
+            return StatusCode(503, new { message = "O envio do código está indisponível no momento. Tente novamente mais tarde." });
+
         var (code, expiresAt, isNew) = _otp.Issue(CheckoutOtpKey(doc, destino));
 
-        // Dispara e-mail real / log (dentro do intervalo de reenvio não manda outro)
+        // Dentro do intervalo de reenvio não manda outro
         if (isNew)
-            await _emailService.SendOtpEmailAsync(destino, code);
+        {
+            // Sem SMTP o EmailService só registra no log (Development)
+            if (porEmail || _env.IsDevelopment())
+                await _emailService.SendOtpEmailAsync(destino, code);
+            if (porWhatsApp)
+            {
+                var envio = await _whatsApp.EnviarAsync(telefoneDestino, "Cliente", WhatsAppService.MensagemCodigo(code));
+                porWhatsApp = envio.Enviado;
+                if (!porEmail && !porWhatsApp && !_env.IsDevelopment())
+                    return StatusCode(503, new { message = "Não conseguimos enviar o código pelo WhatsApp agora. Tente novamente em alguns minutos." });
+            }
+        }
 
         var emailExibido = cadastroExistente ? MascararEmail(destino) : destino;
+        var whatsAppExibido = porWhatsApp ? WhatsAppService.MascararTelefone(telefoneDestino) : null;
+        var onde = (porEmail || _env.IsDevelopment(), whatsAppExibido) switch
+        {
+            (true, not null) => $"para o e-mail {emailExibido} e para o WhatsApp {whatsAppExibido}",
+            (false, not null) => $"para o WhatsApp {whatsAppExibido}",
+            _ => $"para o e-mail {emailExibido}"
+        };
         return Ok(new
         {
             success = true,
             message = cadastroExistente
-                ? $"Este CPF/CNPJ já tem cadastro: enviamos o código de 6 dígitos para o e-mail cadastrado ({emailExibido})."
-                : $"Código de validação de 6 dígitos enviado para {emailExibido}.",
-            emailDestino = emailExibido,
+                ? $"Este CPF/CNPJ já tem cadastro: enviamos o código de 6 dígitos {onde} do cadastro."
+                : $"Código de validação de 6 dígitos enviado {onde}.",
+            emailDestino = porEmail || _env.IsDevelopment() ? emailExibido : null,
+            whatsappDestino = whatsAppExibido,
             cadastroExistente,
             expiresAt,
             simulatedCode = _env.IsDevelopment() ? code : null // Exposto apenas em Development
@@ -91,7 +117,7 @@ public class CheckoutController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Codigo) || (doc.Length != 11 && doc.Length != 14))
             return BadRequest(new { valid = false, message = "CPF/CNPJ, e-mail e código são obrigatórios." });
 
-        var (destino, _) = await ResolverEmailDestinoAsync(doc, req.Email);
+        var (destino, _, _) = await ResolverDestinoAsync(doc, req.Email, null);
         var code = req.Codigo.Trim().Replace(" ", "");
 
         // Código mestre aceito apenas em Development
@@ -114,16 +140,16 @@ public class CheckoutController : ControllerBase
 
     private static string CheckoutOtpKey(string doc, string email) => $"checkout:{doc}:{email}";
 
-    private async Task<(string Email, bool CadastroExistente)> ResolverEmailDestinoAsync(string doc, string emailDigitado)
+    private async Task<(string Email, string? Telefone, bool CadastroExistente)> ResolverDestinoAsync(string doc, string emailDigitado, string? telefoneDigitado)
     {
-        var emailCadastrado = await _db.Clientes
+        var cadastro = await _db.Clientes
             .Where(c => c.CpfCnpj.Replace(".", "").Replace("-", "").Replace("/", "") == doc)
-            .Select(c => c.Email)
+            .Select(c => new { c.Email, c.Telefone })
             .FirstOrDefaultAsync();
 
-        return string.IsNullOrWhiteSpace(emailCadastrado)
-            ? (emailDigitado.Trim().ToLowerInvariant(), false)
-            : (emailCadastrado.Trim().ToLowerInvariant(), true);
+        return cadastro is null || string.IsNullOrWhiteSpace(cadastro.Email)
+            ? (emailDigitado.Trim().ToLowerInvariant(), telefoneDigitado, false)
+            : (cadastro.Email.Trim().ToLowerInvariant(), cadastro.Telefone, true);
     }
 
     private static string MascararEmail(string email)

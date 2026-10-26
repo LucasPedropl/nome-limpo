@@ -18,6 +18,7 @@ public class AuthController : ControllerBase
     private readonly OtpService _otp;
     private readonly IEmailService _emailService;
     private readonly IWebHostEnvironment _env;
+    private readonly WhatsAppService _whatsApp;
 
     public AuthController(
         AppDbContext db,
@@ -25,7 +26,8 @@ public class AuthController : ControllerBase
         TokenService tokenService,
         OtpService otp,
         IEmailService emailService,
-        IWebHostEnvironment env)
+        IWebHostEnvironment env,
+        WhatsAppService whatsApp)
     {
         _db = db;
         _hasher = hasher;
@@ -33,6 +35,7 @@ public class AuthController : ControllerBase
         _otp = otp;
         _emailService = emailService;
         _env = env;
+        _whatsApp = whatsApp;
     }
 
     [HttpPost("login")]
@@ -55,7 +58,8 @@ public class AuthController : ControllerBase
 
     /// <summary>
     /// 1ª etapa do login do assinante: localiza o cadastro por CPF/CNPJ, e-mail ou protocolo e envia
-    /// um código de 6 dígitos para o e-mail cadastrado. A resposta é a mesma exista ou não o cadastro.
+    /// um código de 6 dígitos para o e-mail cadastrado (e para o WhatsApp do cadastro, se o WhatsApp estiver ligado).
+    /// A resposta é a mesma exista ou não o cadastro.
     /// </summary>
     [HttpPost("cliente-login/solicitar-codigo")]
     [AllowAnonymous]
@@ -66,8 +70,9 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Informe CPF/CNPJ, e-mail ou número do protocolo para login." });
 
         // Checado antes de procurar o cadastro, para a resposta não revelar se ele existe
-        if (!_emailService.IsConfigured && !_env.IsDevelopment())
-            return StatusCode(503, new { message = "O envio de e-mail está indisponível no momento. Tente novamente mais tarde." });
+        var whatsAppAtivo = await _whatsApp.IsAtivoAsync();
+        if (!_emailService.IsConfigured && !whatsAppAtivo && !_env.IsDevelopment())
+            return StatusCode(503, new { message = "O envio do código está indisponível no momento. Tente novamente mais tarde." });
 
         var cliente = await FindClienteAsync(cleanTerm);
         string? simulatedCode = null;
@@ -75,14 +80,21 @@ public class AuthController : ControllerBase
         {
             var (code, _, isNew) = _otp.Issue("login:" + cliente.Id);
             if (isNew)
-                await _emailService.SendOtpEmailAsync(cliente.Email, code);
+            {
+                if (_emailService.IsConfigured || _env.IsDevelopment())
+                    await _emailService.SendOtpEmailAsync(cliente.Email, code);
+                if (whatsAppAtivo)
+                    await _whatsApp.EnviarAsync(cliente.Telefone, cliente.NomeRazaoSocial, WhatsAppService.MensagemCodigo(code));
+            }
             simulatedCode = _env.IsDevelopment() ? code : null; // Exposto apenas em Development
         }
 
         return Ok(new
         {
             success = true,
-            message = "Se houver uma assinatura com esses dados, enviamos um código de 6 dígitos para o e-mail cadastrado.",
+            message = whatsAppAtivo
+                ? "Se houver uma assinatura com esses dados, enviamos um código de 6 dígitos para o e-mail e o WhatsApp cadastrados."
+                : "Se houver uma assinatura com esses dados, enviamos um código de 6 dígitos para o e-mail cadastrado.",
             simulatedCode
         });
     }
@@ -107,7 +119,7 @@ public class AuthController : ControllerBase
             {
                 message = result == OtpValidationResult.Expired
                     ? "Código expirado. Solicite um novo."
-                    : "Código inválido ou expirado. Confira o e-mail cadastrado ou solicite um novo código."
+                    : "Código inválido ou expirado. Confira o e-mail ou o WhatsApp cadastrado, ou solicite um novo código."
             });
         }
 

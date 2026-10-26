@@ -14,10 +14,12 @@ namespace NomeLimpo.Api.Controllers;
 public class ComunicacoesController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly WhatsAppService _whatsApp;
 
-    public ComunicacoesController(AppDbContext db)
+    public ComunicacoesController(AppDbContext db, WhatsAppService whatsApp)
     {
         _db = db;
+        _whatsApp = whatsApp;
     }
 
     [HttpGet]
@@ -52,6 +54,20 @@ public class ComunicacoesController : ControllerBase
         var cliente = await _db.Clientes.FirstOrDefaultAsync(c => c.Id == req.ClienteId);
         if (cliente == null)
             return NotFound(new { message = "Cliente não encontrado." });
+
+        // WhatsApp sai de verdade pela Bixs (e só com o WhatsApp ligado); o envio registra o próprio log
+        if (req.Canal == "WhatsApp")
+        {
+            if (!await _whatsApp.IsAtivoAsync())
+                return BadRequest(new { message = "O envio por WhatsApp está desligado. Ligue na tela de Mensagens antes de disparar." });
+
+            var envio = await _whatsApp.EnviarAsync(cliente.Telefone, cliente.NomeRazaoSocial, req.Mensagem, cliente.Id, req.Tipo, req.Assunto, automatico: false);
+            await _db.SaveChangesAsync();
+            if (!envio.Enviado)
+                return BadRequest(new { message = envio.Erro ?? "Não foi possível enviar pelo WhatsApp." });
+
+            return Ok(_db.LogsComunicacao.Local.OrderByDescending(l => l.DataEnvio).First());
+        }
 
         var log = new LogComunicacao
         {

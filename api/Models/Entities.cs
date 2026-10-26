@@ -118,3 +118,12 @@ public class UsuarioAdmin
     public bool Ativo { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
+
+/// <summary>Chaves de configuração alteradas pelo backoffice em tempo de execução (ex.: WhatsApp ligado/desligado).</summary>
+public class ConfiguracaoSistema
+{
+    public string Chave { get; set; } = string.Empty;
+    public string Valor { get; set; } = string.Empty;
+    public string? AlteradoPor { get; set; }
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}

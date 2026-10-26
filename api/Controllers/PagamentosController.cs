@@ -22,6 +22,7 @@ public class PagamentosController : ControllerBase
     private readonly ILogger<PagamentosController> _logger;
     private readonly IWebHostEnvironment _env;
     private readonly TokenService _tokenService;
+    private readonly WhatsAppEmSegundoPlano _whatsApp;
 
     public PagamentosController(
         AppDbContext db,
@@ -31,9 +32,11 @@ public class PagamentosController : ControllerBase
         IConfiguration config,
         ILogger<PagamentosController> logger,
         IWebHostEnvironment env,
-        TokenService tokenService)
+        TokenService tokenService,
+        WhatsAppEmSegundoPlano whatsApp)
     {
         _env = env;
+        _whatsApp = whatsApp;
         _tokenService = tokenService;
         _db = db;
         _bixsService = bixsService;
@@ -260,6 +263,16 @@ public class PagamentosController : ControllerBase
 
         _db.Cobrancas.Add(cobranca);
         await _db.SaveChangesAsync();
+
+        // Dados do Pix também no WhatsApp do cliente (só cobrança nova: a reaproveitada já foi enviada)
+        var (clienteId, nomeCliente, telefoneCliente, valorPix) = (cliente.Id, cliente.NomeRazaoSocial, cliente.Telefone, cobranca.Valor);
+        _whatsApp.Enviar(async whatsApp =>
+        {
+            var envio = await whatsApp.EnviarAsync(telefoneCliente, nomeCliente, WhatsAppService.MensagemPix(nomeCliente, valorPix),
+                clienteId, "CobrancaPix", $"PIX da 1ª mensalidade — R$ {valorPix:N2}");
+            if (envio.Enviado)
+                await whatsApp.EnviarAsync(telefoneCliente, nomeCliente, pixEmv);
+        });
 
         return Ok(new PaymentResultDto
         {
@@ -537,6 +550,11 @@ public class PagamentosController : ControllerBase
                 {
                     _logger.LogWarning(ex, "Falha no envio de e-mails de confirmação de pagamento para {Email}", cliente.Email);
                 }
+
+                var (clienteId, nomeCliente, telefoneCliente) = (cliente.Id, cliente.NomeRazaoSocial, cliente.Telefone);
+                _whatsApp.Enviar(whatsApp => whatsApp.EnviarAsync(telefoneCliente, nomeCliente,
+                    WhatsAppService.MensagemPagamentoConfirmado(nomeCliente, protocolo, dataPrevista),
+                    clienteId, "AtivacaoServico", $"Pagamento confirmado — protocolo {protocolo}"));
             }
         }
 

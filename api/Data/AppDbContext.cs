@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Cobranca> Cobrancas => Set<Cobranca>();
     public DbSet<LogComunicacao> LogsComunicacao => Set<LogComunicacao>();
     public DbSet<UsuarioAdmin> UsuariosAdmin => Set<UsuarioAdmin>();
+    public DbSet<ConfiguracaoSistema> ConfiguracoesSistema => Set<ConfiguracaoSistema>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -89,6 +90,15 @@ public class AppDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.Email).IsUnique();
             entity.Property(e => e.Email).HasMaxLength(150).IsRequired();
+        });
+
+        // ConfiguracaoSistema
+        modelBuilder.Entity<ConfiguracaoSistema>(entity =>
+        {
+            entity.HasKey(e => e.Chave);
+            entity.Property(e => e.Chave).HasMaxLength(100);
+            entity.Property(e => e.Valor).HasMaxLength(500).IsRequired();
+            entity.Property(e => e.AlteradoPor).HasMaxLength(150);
         });
     }
 }

@@ -83,6 +83,8 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<PixService>();
 builder.Services.AddSingleton<OtpService>();
 builder.Services.AddHttpClient<IBixsService, BixsService>();
+builder.Services.AddScoped<WhatsAppService>();
+builder.Services.AddSingleton<WhatsAppEmSegundoPlano>();
 
 // 4. JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"];
@@ -173,6 +175,18 @@ using (var scope = app.Services.CreateScope())
     var hasher = scope.ServiceProvider.GetRequiredService<PasswordService>();
 
     db.Database.EnsureCreated();
+
+    // EnsureCreated não altera banco que já existe: a tabela de configurações (posterior ao schema inicial) é criada à parte
+    if (db.Database.IsSqlite())
+    {
+        db.Database.ExecuteSqlRaw(
+            "CREATE TABLE IF NOT EXISTS \"ConfiguracoesSistema\" (\"Chave\" TEXT NOT NULL CONSTRAINT \"PK_ConfiguracoesSistema\" PRIMARY KEY, \"Valor\" TEXT NOT NULL, \"AlteradoPor\" TEXT NULL, \"UpdatedAt\" TEXT NOT NULL)");
+    }
+    else
+    {
+        db.Database.ExecuteSqlRaw(
+            "IF OBJECT_ID(N'[ConfiguracoesSistema]', N'U') IS NULL CREATE TABLE [ConfiguracoesSistema] ([Chave] nvarchar(100) NOT NULL CONSTRAINT [PK_ConfiguracoesSistema] PRIMARY KEY, [Valor] nvarchar(500) NOT NULL, [AlteradoPor] nvarchar(150) NULL, [UpdatedAt] datetime2 NOT NULL)");
+    }
 
     // 1. Admin inicial: credencial fixa só em Development; fora dele vem de Admin:Email / Admin:Password
     if (!db.UsuariosAdmin.Any())
