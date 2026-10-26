@@ -11,7 +11,7 @@ Inspirada no layout, padrão visual, fluxo de navegação e estratégia de alta 
 1. **Atuação em CPF & CNPJ**: Atendimento especializado para Pessoas Físicas e Empresas buscando reabilitar seu crédito.
 2. **Não Exibição de Apontamentos**: Procedimentos extrajudiciais para baixa e ocultação de restrições em consultas públicas externas.
 3. **Plano Único e Transparente**: Assinatura mensal fixa de **R$ 100,00/mês** via PIX, sem taxas ocultas e sem fidelidade.
-4. **Garantia Contratual Documentada**: Prazo estimado de **30 a 45 dias úteis** para conclusão ou **100% do dinheiro de volta**.
+4. **Garantia Contratual Documentada**: Prazo estimado de **8 a 15 dias úteis** para conclusão ou **100% do dinheiro de volta**.
 5. **Conformidade com CDC e LGPD**: Disclaimers claros e transparentes (o serviço não promete concessão compulsória de crédito nem apaga restrições internas históricas mantidas por bancos).
 6. **Comparativo Visual**: Tabela lado a lado entre permanecer com restrições vs manter o nome limpo.
 
@@ -39,7 +39,7 @@ O fluxo ocorre 100% na tela do cliente sem redirecionamento para gateways extern
 - **Etapa 4: Confirmação e Ativação do Serviço**
   - Celebração com confetes nativos em Canvas
   - Número de protocolo e contratação gerado (ex: `NL-2026-XXXX`)
-  - Data prevista de conclusão calculada (45 dias úteis)
+  - Data prevista de conclusão calculada (15 dias úteis)
   - Termos da garantia contratual e confirmação de e-mail enviado
 
 ---

@@ -50,6 +50,6 @@ export const WORK_STEPS: ProcessStep[] = [
       'Nossos procedimentos de manutenção cadastral atuam para que restrições deixem de ser exibidas em consultas externas de terceiros.',
     badge: 'Conclusão técnica',
     icon: TrendingUp,
-    duration: '30 a 45 dias úteis',
+    duration: '8 a 15 dias úteis',
   },
 ]

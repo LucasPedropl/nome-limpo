@@ -64,7 +64,7 @@ export const MAIN_BENEFITS: BenefitItem[] = [
 
 export const KEY_METRICS = [
   {
-    value: '30-45d',
+    value: '8-15d',
     label: 'Prazo médio de conclusão',
     detail: 'Dias úteis para baixa das restrições externas',
   },

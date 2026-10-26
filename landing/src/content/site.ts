@@ -5,7 +5,7 @@ export const SITE_DESCRIPTION =
 
 export const PLAN_PRICE = 100.0
 export const PLAN_PRICE_FORMATTED = 'R$\u00A0100,00'
-export const ESTIMATED_DAYS_DELIVERY = '30 a 45 dias úteis'
+export const ESTIMATED_DAYS_DELIVERY = '8 a 15 dias úteis'
 
 export const SALES_WHATSAPP_RAW = '5531993585185'
 export const SALES_WHATSAPP_DISPLAY = '(31) 9358-5185'

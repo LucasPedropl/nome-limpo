@@ -34,9 +34,13 @@ export const contractService = {
       return existing
     }
 
+    // Previsão = fim do prazo médio (8 a 15 dias úteis): 15 dias úteis, pulando sábado e domingo
     const today = new Date()
     const targetDate = new Date()
-    targetDate.setDate(targetDate.getDate() + 45)
+    for (let businessDays = 0; businessDays < 15; ) {
+      targetDate.setDate(targetDate.getDate() + 1)
+      if (targetDate.getDay() !== 0 && targetDate.getDay() !== 6) businessDays++
+    }
 
     // Protocolo derivado do id do pagamento: o mesmo Pix dá sempre o mesmo número
     const seed = (data.paymentId || data.txid || String(Date.now())).split('').reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) % 9000, 7)

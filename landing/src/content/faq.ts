@@ -27,7 +27,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: 'garantia',
     question: 'Como funciona a garantia ou dinheiro de volta?',
     answer:
-      'Caso os procedimentos contratados não resultem na regularização cadastral perante os órgãos de proteção ao crédito no prazo estipulado contratualmente (30 a 45 dias úteis), o cliente tem direito à devolução integral do valor investido, conforme os termos operacionais pactuados no termo de adesão.',
+      'Caso os procedimentos contratados não resultem na regularização cadastral perante os órgãos de proteção ao crédito no prazo estipulado contratualmente (8 a 15 dias úteis), o cliente tem direito à devolução integral do valor investido, conforme os termos operacionais pactuados no termo de adesão.',
   },
   {
     category: 'pagamento',
@@ -51,6 +51,6 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: 'servico',
     question: 'Em quanto tempo meu nome deixa de constar como negativado?',
     answer:
-      'O prazo médio legal e operacional para processamento junto aos órgãos de proteção ao crédito varia de 30 a 45 dias úteis a contar da compensação da taxa de adesão e envio dos documentos complementares, se houver.',
+      'O prazo médio legal e operacional para processamento junto aos órgãos de proteção ao crédito varia de 8 a 15 dias úteis a contar da compensação da taxa de adesão e envio dos documentos complementares, se houver.',
   },
 ]
