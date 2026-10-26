@@ -33,7 +33,7 @@ export function CheckoutModal({
 }: CheckoutModalProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [formData, setFormData] = useState<RegistrationFormData | null>(null)
-  const [otpDispatch, setOtpDispatch] = useState<{ emailDestino?: string; simulatedCode?: string } | null>(null)
+  const [otpDispatch, setOtpDispatch] = useState<{ emailDestino?: string; whatsappDestino?: string; simulatedCode?: string } | null>(null)
   const [pixCharge, setPixCharge] = useState<PixChargeResponse | null>(null)
   const [contract, setContract] = useState<ContractData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -66,7 +66,7 @@ export function CheckoutModal({
     setStep(3)
   }
 
-  // Passo 1 -> Passo 2 (Envia o código de confirmação; CPF/CNPJ já cadastrado recebe no e-mail do cadastro)
+  // Passo 1 -> Passo 2 (Envia o código por e-mail e/ou WhatsApp; CPF/CNPJ já cadastrado recebe nos contatos do cadastro)
   const handleRegisterSubmit = async (data: RegistrationFormData) => {
     setIsLoading(true)
     setErrorMessage('')
@@ -77,12 +77,12 @@ export function CheckoutModal({
         await generatePixCharge(data, '')
         return
       }
-      const res = await tokenService.sendToken(data.document, data.email)
+      const res = await tokenService.sendToken(data.document, data.email, data.phone)
       if (!res.success) {
         setErrorMessage(res.message)
         return
       }
-      setOtpDispatch({ emailDestino: res.emailDestino, simulatedCode: res.simulatedCode })
+      setOtpDispatch({ emailDestino: res.emailDestino, whatsappDestino: res.whatsappDestino, simulatedCode: res.simulatedCode })
       setStep(2)
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : PIX_UNAVAILABLE_MESSAGE)
@@ -165,7 +165,7 @@ export function CheckoutModal({
 
   const stepTitles = {
     1: 'Assinar Nome Limpo — Dados do Titular',
-    2: 'Confirmação do E-mail',
+    2: 'Código de Confirmação',
     3: 'Pagamento PIX da 1ª Mensalidade',
     4: 'Assinatura Ativa',
   }
@@ -184,7 +184,7 @@ export function CheckoutModal({
           <div className="flex items-center justify-between text-[11px] font-mono text-cream-dim mb-2">
             <span className={step >= 1 ? 'text-brand-light font-bold' : ''}>1. Dados do Titular</span>
             {EXIGIR_VERIFICACAO_EMAIL && (
-              <span className={step >= 2 ? 'text-brand-light font-bold' : ''}>2. Código no E-mail</span>
+              <span className={step >= 2 ? 'text-brand-light font-bold' : ''}>2. Código</span>
             )}
             <span className={step >= 3 ? 'text-brand-light font-bold' : ''}>
               {totalSteps}. Pagamento PIX (R$ 100)
@@ -224,7 +224,9 @@ export function CheckoutModal({
         <Step2TokenValidation
           document={formData.document}
           email={formData.email}
+          phone={formData.phone}
           emailDestino={otpDispatch?.emailDestino}
+          whatsappDestino={otpDispatch?.whatsappDestino}
           simulatedCode={otpDispatch?.simulatedCode}
           onVerified={handleCodeVerified}
           onBack={() => {

@@ -1,12 +1,14 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { KeyRound, Mail, ArrowRight, RotateCw, CheckCircle2, ShieldAlert } from 'lucide-react'
+import { KeyRound, Mail, MessageCircle, ArrowRight, RotateCw, CheckCircle2, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { tokenService } from '@/services/tokenService'
 
 interface Step2Props {
   document: string
   email: string
+  phone?: string
   emailDestino?: string
+  whatsappDestino?: string
   simulatedCode?: string
   onVerified: (verificationToken: string) => Promise<void>
   onBack: () => void
@@ -16,7 +18,9 @@ interface Step2Props {
 export function Step2TokenValidation({
   document,
   email,
+  phone,
   emailDestino: initialEmailDestino,
+  whatsappDestino: initialWhatsappDestino,
   simulatedCode: initialCode,
   onVerified,
   onBack,
@@ -24,7 +28,9 @@ export function Step2TokenValidation({
 }: Step2Props) {
   const [tokenInput, setTokenInput] = useState('')
   const [activeSimulatedCode, setActiveSimulatedCode] = useState(initialCode)
-  const [emailDestino, setEmailDestino] = useState(initialEmailDestino || email)
+  // Sem e-mail nem WhatsApp na resposta (API antiga), o código foi para o e-mail digitado
+  const [emailDestino, setEmailDestino] = useState(initialEmailDestino || (initialWhatsappDestino ? undefined : email))
+  const [whatsappDestino, setWhatsappDestino] = useState(initialWhatsappDestino)
   const [errorMessage, setErrorMessage] = useState('')
   const [resendCooldown, setResendCooldown] = useState(60)
   const [isResending, setIsResending] = useState(false)
@@ -57,13 +63,14 @@ export function Step2TokenValidation({
     setErrorMessage('')
 
     try {
-      const res = await tokenService.sendToken(document, email)
+      const res = await tokenService.sendToken(document, email, phone)
       if (!res.success) {
         setErrorMessage(res.message)
         return
       }
-      if (res.emailDestino) {
+      if (res.emailDestino || res.whatsappDestino) {
         setEmailDestino(res.emailDestino)
+        setWhatsappDestino(res.whatsappDestino)
       }
       if (res.simulatedCode) {
         setActiveSimulatedCode(res.simulatedCode)
@@ -79,14 +86,15 @@ export function Step2TokenValidation({
       {/* Aviso de Envio */}
       <div className="rounded-2xl border border-line bg-ink p-6 text-center">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/15 text-brand-light mb-4 shadow-sm">
-          <Mail className="h-7 w-7" />
+          {whatsappDestino && !emailDestino ? <MessageCircle className="h-7 w-7" /> : <Mail className="h-7 w-7" />}
         </div>
         <h4 className="font-wide text-lg sm:text-xl font-bold text-cream">
           Código de Segurança Enviado
         </h4>
         <p className="mt-2 text-sm text-cream-dim leading-relaxed">
-          Enviamos um código de validação de 6 dígitos para o e-mail:
-          <span className="font-mono font-bold text-cream block mt-1 text-base">{emailDestino}</span>
+          Enviamos um código de validação de 6 dígitos para {emailDestino && whatsappDestino ? 'o e-mail e o WhatsApp' : whatsappDestino ? 'o WhatsApp' : 'o e-mail'}:
+          {emailDestino && <span className="font-mono font-bold text-cream block mt-1 text-base">{emailDestino}</span>}
+          {whatsappDestino && <span className="font-mono font-bold text-cream block mt-1 text-base">WhatsApp {whatsappDestino}</span>}
         </p>
       </div>
 
@@ -111,7 +119,7 @@ export function Step2TokenValidation({
       <form onSubmit={handleVerify} className="space-y-5">
         <div>
           <label className="text-xs sm:text-sm font-mono text-cream-dim block mb-2 text-center">
-            Digite os 6 dígitos recebidos no e-mail:
+            Digite os 6 dígitos recebidos{whatsappDestino ? (emailDestino ? ' no e-mail ou no WhatsApp' : ' no WhatsApp') : ' no e-mail'}:
           </label>
           <div className="flex justify-center">
             <input

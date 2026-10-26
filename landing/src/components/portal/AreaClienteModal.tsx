@@ -76,7 +76,7 @@ export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
         pagwebService.clearSession()
         setSession(null)
         setEtapa('identificar')
-        setErro('Sua sessão expirou. Entre novamente com o código enviado ao seu e-mail.')
+        setErro('Sua sessão expirou. Entre novamente com o código enviado ao seu e-mail ou WhatsApp.')
         return
       }
 
@@ -238,7 +238,7 @@ export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
                 Informe seu CPF/CNPJ, e-mail ou o Protocolo de Atendimento
               </span>
               <p className="text-xs text-cream-dim">
-                Vamos enviar um código de 6 dígitos para o e-mail cadastrado na assinatura. Use o CPF/CNPJ (ex: 128.459.736-22) ou o protocolo gerado na adesão (ex: NL-2026-1048).
+                Vamos enviar um código de 6 dígitos para o e-mail (e o WhatsApp, se disponível) cadastrado na assinatura. Use o CPF/CNPJ (ex: 128.459.736-22) ou o protocolo gerado na adesão (ex: NL-2026-1048).
               </p>
             </div>
 

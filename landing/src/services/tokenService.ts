@@ -1,6 +1,6 @@
 /**
- * Serviço de envio e validação do código de confirmação por e-mail do checkout.
- * A API amarra o código ao CPF/CNPJ: se o documento já tem cadastro, o código vai para o e-mail cadastrado.
+ * Serviço de envio e validação do código de confirmação do checkout (e-mail e, se ligado na API, WhatsApp).
+ * A API amarra o código ao CPF/CNPJ: se o documento já tem cadastro, o código vai para o e-mail e o telefone cadastrados.
  * A validação devolve o comprovante (verificationToken) exigido para gerar o PIX.
  */
 
@@ -9,6 +9,7 @@ export interface TokenDispatchResult {
   message: string
   expiresAt: number
   emailDestino?: string // E-mail que recebeu o código (mascarado quando é o do cadastro)
+  whatsappDestino?: string // WhatsApp que recebeu o código (sempre mascarado); ausente se não foi por WhatsApp
   simulatedCode?: string // Exposto pela API só em Development, para o botão de preencher
 }
 
@@ -22,16 +23,16 @@ const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5240'
 
 export const tokenService = {
   /**
-   * Solicita o envio do código de 6 dígitos para o e-mail do titular
+   * Solicita o envio do código de 6 dígitos para o e-mail (e o WhatsApp) do titular
    */
-  async sendToken(document: string, email: string): Promise<TokenDispatchResult> {
+  async sendToken(document: string, email: string, phone?: string): Promise<TokenDispatchResult> {
     const cleanEmail = email.trim().toLowerCase()
 
     try {
       const response = await fetch(`${API_URL}/api/public/checkout/solicitar-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpfCnpj: document, email: cleanEmail }),
+        body: JSON.stringify({ cpfCnpj: document, email: cleanEmail, telefone: phone }),
       })
 
       const data = await response.json().catch(() => null)
@@ -40,7 +41,8 @@ export const tokenService = {
           success: true,
           message: data.message || `Código enviado para ${cleanEmail}`,
           expiresAt: new Date(data.expiresAt).getTime(),
-          emailDestino: data.emailDestino || cleanEmail,
+          emailDestino: data.emailDestino || undefined,
+          whatsappDestino: data.whatsappDestino || undefined,
           simulatedCode: data.simulatedCode || undefined,
         }
       }
