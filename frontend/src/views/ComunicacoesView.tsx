@@ -10,6 +10,7 @@ import {
 import { LogComunicacao, Cliente } from '../types'
 import { api } from '../services/api'
 import { useToast } from '../components/Toast'
+import { WhatsAppPanel } from './WhatsAppPanel'
 
 interface ComunicacoesViewProps {
   logs: LogComunicacao[]
@@ -101,6 +102,8 @@ export const ComunicacoesView: React.FC<ComunicacoesViewProps> = ({
           <span>Disparar Notificação Manual</span>
         </button>
       </div>
+
+      <WhatsAppPanel onChanged={onReload} />
 
       {/* Regua Specs Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">

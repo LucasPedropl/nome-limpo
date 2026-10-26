@@ -119,6 +119,24 @@ function fallbackToMock<T>(err: unknown, mock: () => T): T {
   return mock()
 }
 
+export interface WhatsAppStatus {
+  ativo: boolean
+  conectado: boolean
+  telefone?: string | null
+  instanciaId?: string | null
+  erro?: string | null
+  alteradoEm?: string | null
+  alteradoPor?: string | null
+}
+
+export interface WhatsAppConexao {
+  instanciaId: string
+  conectado: boolean
+  qrCode?: string | null
+}
+
+let mockWhatsApp: WhatsAppStatus = { ativo: false, conectado: true, telefone: '5531999990000' }
+
 export const api = {
   isMockMode: isMockModeActive,
   setMockMode: setMockModeActive,
@@ -331,6 +349,39 @@ export const api = {
     } catch (err) {
       return fallbackToMock(err, () => mockStore.getComunicacoes(tipo, canal))
     }
+  },
+
+  // WhatsApp da empresa (instância Bixs): liga/desliga, conexão por QR Code e teste
+  getWhatsAppStatus: async (): Promise<WhatsAppStatus> => {
+    if (isMockModeActive()) return { ...mockWhatsApp }
+    return request<WhatsAppStatus>('/api/whatsapp/status')
+  },
+
+  setWhatsAppAtivo: async (ativo: boolean): Promise<WhatsAppStatus> => {
+    if (isMockModeActive()) {
+      mockWhatsApp = { ...mockWhatsApp, ativo, alteradoEm: new Date().toISOString(), alteradoPor: 'modo simulação' }
+      return { ...mockWhatsApp }
+    }
+    return request<WhatsAppStatus>('/api/whatsapp/ativo', {
+      method: 'PUT',
+      body: JSON.stringify({ ativo }),
+    })
+  },
+
+  conectarWhatsApp: async (): Promise<WhatsAppConexao> => {
+    if (isMockModeActive()) return { instanciaId: 'mock', conectado: true, qrCode: null }
+    return request<WhatsAppConexao>('/api/whatsapp/conectar', { method: 'POST' })
+  },
+
+  testarWhatsApp: async (telefone: string): Promise<{ enviado: boolean; message: string }> => {
+    if (isMockModeActive()) {
+      if (!mockWhatsApp.ativo) throw new Error('O envio por WhatsApp está desligado.')
+      return { enviado: true, message: 'Mensagem de teste enviada (simulação).' }
+    }
+    return request<{ enviado: boolean; message: string }>('/api/whatsapp/teste', {
+      method: 'POST',
+      body: JSON.stringify({ telefone }),
+    })
   },
 
   dispararComunicacao: async (payload: {

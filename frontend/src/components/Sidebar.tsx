@@ -59,7 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'comunicacoes',
-      label: 'Régua de E-mails',
+      label: 'E-mails & WhatsApp',
       icon: <Mail className="w-4 h-4 stroke-[2]" />,
     },
   ]
