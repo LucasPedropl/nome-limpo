@@ -1,0 +1,3 @@
+{
+  "rewrites": [{ "source": "/whatsapp-nomelimpo-8317", "destination": "/index.html" }]
+}

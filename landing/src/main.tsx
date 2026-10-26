@@ -20,7 +20,9 @@ function Root() {
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
-  return hash === WHATSAPP_PAGE_HASH ? <WhatsAppConnectPage /> : <App />
+  // Aceita também o endereço sem "#" (/whatsapp-nomelimpo-8317, reescrito no vercel.json)
+  const isWhatsAppPage = hash === WHATSAPP_PAGE_HASH || window.location.pathname === WHATSAPP_PAGE_HASH.slice(1)
+  return isWhatsAppPage ? <WhatsAppConnectPage /> : <App />
 }
 
 createRoot(rootElement).render(
