@@ -223,13 +223,13 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0] || 'cliente'
 
 export const whatsappMessages = {
   code: (code: string) =>
-    `*Nome Limpo Express*\n\nSeu código de verificação é: *${code}*\n\nEle vale por 10 minutos. Não compartilhe este código com ninguém.`,
+    `*Seu Nome Limpo*\n\nSeu código de verificação é: *${code}*\n\nEle vale por 10 minutos. Não compartilhe este código com ninguém.`,
   // O código Pix vai sozinho na mensagem seguinte, para o cliente copiar sem pegar texto junto
   pix: (name: string, amount: number) =>
-    `*Nome Limpo Express*\n\nOlá, ${firstName(name)}! Recebemos seu cadastro.\n\n` +
+    `*Seu Nome Limpo*\n\nOlá, ${firstName(name)}! Recebemos seu cadastro.\n\n` +
     `Para ativar a regularização, pague a 1ª mensalidade de *R$ ${brl(amount)}* com o Pix Copia e Cola da próxima mensagem (toque e segure para copiar).`,
   paid: (name: string, protocol: string, estimatedDate: string) =>
-    `*Nome Limpo Express*\n\n✅ Pagamento confirmado, ${firstName(name)}!\n\n` +
+    `*Seu Nome Limpo*\n\n✅ Pagamento confirmado, ${firstName(name)}!\n\n` +
     `Seu processo de regularização já começou.\nProtocolo: *${protocol}*\nPrevisão de conclusão: ${estimatedDate}\n\n` +
     'Qualquer dúvida, é só responder por aqui.',
 }

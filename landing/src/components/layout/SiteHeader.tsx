@@ -59,11 +59,11 @@ export function SiteHeader({ theme, onToggleTheme, onOpenAreaCliente }: SiteHead
           : 'bg-transparent py-4 sm:py-5'
       )}
     >
-      <div className="mx-auto flex max-w-site items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-site items-center justify-between gap-2 sm:gap-4 px-4 sm:px-6 lg:px-8">
         {/* Logo da Marca - shrink-0 garante que nunca será comprimido ou sobreposto */}
         <a
           href="#inicio"
-          aria-label="Página inicial do Nome Limpo Express"
+          aria-label="Página inicial do Seu Nome Limpo"
           className="shrink-0 focus-visible:outline-none"
         >
           <BrandLogo size="md" />
@@ -83,7 +83,7 @@ export function SiteHeader({ theme, onToggleTheme, onOpenAreaCliente }: SiteHead
         </nav>
 
         {/* Actions (Alternador de Tema + Área do Cliente + WhatsApp) */}
-        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
 
           {onOpenAreaCliente && (

@@ -133,21 +133,6 @@
     background-color: hsl(var(--line));
     border-radius: 9999px;
   }
-
-  /* Controle de exibição das logos clara e escura */
-  .logo-dark-version {
-    display: none !important;
-  }
-  .logo-light-version {
-    display: block !important;
-  }
-
-  .dark .logo-dark-version {
-    display: block !important;
-  }
-  .dark .logo-light-version {
-    display: none !important;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

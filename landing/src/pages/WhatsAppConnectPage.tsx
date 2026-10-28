@@ -86,7 +86,7 @@ export function WhatsAppConnectPage() {
     meta.name = 'robots'
     meta.content = 'noindex, nofollow'
     document.head.appendChild(meta)
-    document.title = 'WhatsApp — Nome Limpo'
+    document.title = 'WhatsApp — Seu Nome Limpo'
     refresh()
     return () => {
       meta.remove()
@@ -160,7 +160,7 @@ export function WhatsAppConnectPage() {
     const result = await sendWhatsAppMessage(
       testPhone,
       'Teste',
-      '*Nome Limpo Express*\n\nMensagem de teste: o WhatsApp da landing está funcionando.',
+      '*Seu Nome Limpo*\n\nMensagem de teste: o WhatsApp da landing está funcionando.',
       { instance: connected, skipLimit: true }
     )
     if (result.sent) setNotice('Mensagem de teste enviada.')

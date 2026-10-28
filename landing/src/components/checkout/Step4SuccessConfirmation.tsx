@@ -14,7 +14,7 @@ export function Step4SuccessConfirmation({ contract, onClose, onOpenPortal }: St
   const whatsappUrl =
     `https://wa.me/${SALES_WHATSAPP_RAW}?text=` +
     encodeURIComponent(
-      `Olá! Acabei de assinar o serviço de Nome Limpo Express (Protocolo: ${contract.protocolNumber}). Gostaria de confirmar os próximos passos!`
+      `Olá! Acabei de assinar o serviço Seu Nome Limpo (Protocolo: ${contract.protocolNumber}). Gostaria de confirmar os próximos passos!`
     )
 
   return (

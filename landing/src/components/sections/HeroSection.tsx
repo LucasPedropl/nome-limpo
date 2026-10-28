@@ -34,7 +34,7 @@ export function HeroSection({ onOpenCheckout }: HeroSectionProps) {
             <h1 className="font-wide mt-5 sm:mt-6 text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-cream leading-tight tracking-tight break-words text-balance">
               Recupere a sua paz e o seu crédito com o{' '}
               <span className="text-brand-light inline-block">
-                Nome Limpo
+                Seu Nome Limpo
               </span>
             </h1>
 

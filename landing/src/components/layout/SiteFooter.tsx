@@ -97,7 +97,7 @@ export function SiteFooter() {
 
         {/* Rodapé inferior com aviso legal e direitos autorais */}
         <div className="mt-12 sm:mt-16 border-t border-line/70 pt-8 sm:pt-10 text-center sm:flex sm:items-center sm:justify-between text-xs sm:text-sm text-cream-dim/70">
-          <p>© {currentYear} Nome Limpo Express. Todos os direitos reservados.</p>
+          <p>© {currentYear} Seu Nome Limpo. Todos os direitos reservados.</p>
           <p className="mt-2.5 sm:mt-0">
             Assinatura mensal de R$ 100,00 sem taxa de adesão e sem fidelidade.
           </p>

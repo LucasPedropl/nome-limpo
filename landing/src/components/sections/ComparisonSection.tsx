@@ -41,7 +41,7 @@ export function ComparisonSection() {
           eyebrow="Comparativo Direto"
           titleId="comparison-title"
           title="O impacto real de um CPF e CNPJ regularizados"
-          description="Entenda claramente a diferença entre permanecer com o nome negativado e contar com o suporte ativo do Nome Limpo Express."
+          description="Entenda claramente a diferença entre permanecer com o nome negativado e contar com o suporte ativo do Seu Nome Limpo."
           alignment="center"
         />
 
@@ -53,7 +53,7 @@ export function ComparisonSection() {
               <XCircle className="h-4 w-4" /> Com Restrições no Nome
             </div>
             <div className="col-span-4 text-brand-light flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-signal" /> Com Nome Limpo Express
+              <CheckCircle2 className="h-4 w-4 text-signal" /> Com o Seu Nome Limpo
             </div>
           </div>
 

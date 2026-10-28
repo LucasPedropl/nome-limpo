@@ -1,5 +1,4 @@
-import logoLight from '@/assets/logo-light.png'
-import logoDark from '@/assets/logo-dark.png'
+import logoMark from '@/assets/logo-mark.png'
 import { cn } from '@/lib/cn'
 
 interface BrandLogoProps {
@@ -8,38 +7,30 @@ interface BrandLogoProps {
 }
 
 export function BrandLogo({ className, size = 'md' }: BrandLogoProps) {
-  // Proporção horizontal ~3.5:1 da logo oficial da marca com limite responsivo
-  const sizeClasses = {
-    sm: 'h-7 sm:h-8 md:h-9 w-auto max-w-[145px] sm:max-w-none',
-    md: 'h-8 sm:h-10 xl:h-11 w-auto max-w-[160px] sm:max-w-none',
-    lg: 'h-10 sm:h-12 xl:h-13 w-auto max-w-[180px] sm:max-w-none',
+  // Escudo da logo oficial (igual nos dois temas) + nome em texto, que acompanha as cores do tema
+  const sizes = {
+    sm: { mark: 'h-7 sm:h-8 md:h-9', top: 'text-[8px] sm:text-[9px]', name: 'text-[15px] sm:text-[17px] md:text-lg' },
+    // No lg o menu inteiro divide a linha com a logo: ela fica mais estreita até o xl
+    md: { mark: 'h-7 sm:h-10 lg:h-8 xl:h-11', top: 'text-[7px] sm:text-[10px] lg:text-[8px] xl:text-[10px]', name: 'text-xs sm:text-xl lg:text-base xl:text-[22px]' },
+    lg: { mark: 'h-10 sm:h-12 xl:h-13', top: 'text-[10px] sm:text-xs', name: 'text-xl sm:text-2xl xl:text-[28px]' },
   }[size]
 
   return (
-    <div className={cn('inline-flex items-center select-none group shrink-0 min-w-0', className)}>
-      {/* Versão Tema Claro (Logotipo oficial completo em imagem, sem texto HTML) */}
+    <div className={cn('inline-flex items-center gap-1.5 sm:gap-2 select-none group shrink-0 min-w-0', className)}>
       <img
-        src={logoLight}
-        alt="Nome Limpo Express"
-        width={388}
-        height={110}
+        src={logoMark}
+        alt=""
+        width={160}
+        height={160}
         className={cn(
-          'logo-light-version object-contain shrink-0 transition-all duration-300 group-hover:scale-[1.02] drop-shadow-sm',
-          sizeClasses
+          'w-auto object-contain shrink-0 transition-transform duration-300 group-hover:scale-[1.03] drop-shadow-sm dark:drop-shadow-[0_2px_12px_rgba(16,185,129,0.22)]',
+          sizes.mark
         )}
       />
-
-      {/* Versão Tema Escuro (Logotipo oficial para alto contraste no tema escuro) */}
-      <img
-        src={logoDark}
-        alt="Nome Limpo Express"
-        width={388}
-        height={110}
-        className={cn(
-          'logo-dark-version object-contain shrink-0 transition-all duration-300 group-hover:scale-[1.02] drop-shadow-[0_2px_12px_rgba(16,185,129,0.22)]',
-          sizeClasses
-        )}
-      />
+      <span className="flex flex-col leading-none whitespace-nowrap">
+        <span className={cn('font-bold uppercase tracking-[0.34em] text-brand-light', sizes.top)}>Seu</span>
+        <span className={cn('mt-0.5 font-black uppercase tracking-tight text-cream', sizes.name)}>Nome Limpo</span>
+      </span>
     </div>
   )
 }

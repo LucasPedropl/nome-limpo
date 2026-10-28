@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Step1RegisterForm, type RegistrationFormData } from './Step1RegisterForm'
@@ -13,7 +13,6 @@ import {
 } from '@/services/pagwebService'
 import { contractService, type ContractData } from '@/services/contractService'
 import { tokenService } from '@/services/tokenService'
-import { isWhatsAppOn } from '@/services/whatsappService'
 
 interface CheckoutModalProps {
   isOpen: boolean
@@ -30,24 +29,11 @@ export function CheckoutModal({
 }: CheckoutModalProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [formData, setFormData] = useState<RegistrationFormData | null>(null)
-  const [otpDispatch, setOtpDispatch] = useState<{ whatsappDestino?: string; simulatedCode?: string } | null>(null)
+  const [otpDispatch, setOtpDispatch] = useState<{ emailDestino?: string; whatsappDestino?: string; simulatedCode?: string } | null>(null)
   const [pixCharge, setPixCharge] = useState<PixChargeResponse | null>(null)
   const [contract, setContract] = useState<ContractData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  // Etapa do código só existe com o WhatsApp da empresa conectado (ligado na página secreta)
-  const [codeStepEnabled, setCodeStepEnabled] = useState(false)
-
-  useEffect(() => {
-    if (!isOpen) return
-    let active = true
-    isWhatsAppOn().then((on) => {
-      if (active) setCodeStepEnabled(on)
-    })
-    return () => {
-      active = false
-    }
-  }, [isOpen])
 
   // Reseta ao fechar
   const handleClose = () => {
@@ -76,24 +62,18 @@ export function CheckoutModal({
     setStep(3)
   }
 
-  // Passo 1 -> Passo 2 (código no WhatsApp) ou direto para o PIX quando o WhatsApp está desligado
+  // Passo 1 -> Passo 2 (código no e-mail; pelo WhatsApp só se o e-mail não sair)
   const handleRegisterSubmit = async (data: RegistrationFormData) => {
     setIsLoading(true)
     setErrorMessage('')
     try {
       setFormData(data)
-      const whatsappOn = await isWhatsAppOn()
-      setCodeStepEnabled(whatsappOn)
-      if (!whatsappOn) {
-        await generatePixCharge(data, '')
-        return
-      }
       const res = await tokenService.sendToken(data.document, data.email, data.phone)
       if (!res.success) {
         setErrorMessage(res.message)
         return
       }
-      setOtpDispatch({ whatsappDestino: res.whatsappDestino, simulatedCode: res.simulatedCode })
+      setOtpDispatch({ emailDestino: res.emailDestino, whatsappDestino: res.whatsappDestino, simulatedCode: res.simulatedCode })
       setStep(2)
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : PIX_UNAVAILABLE_MESSAGE)
@@ -168,12 +148,10 @@ export function CheckoutModal({
     }
   }
 
-  // Sem a etapa do código o PIX vira a etapa 2 de 2
-  const totalSteps = codeStepEnabled ? 3 : 2
-  const displayStep = !codeStepEnabled && step === 3 ? 2 : step
+  const totalSteps = 3
 
   const stepTitles = {
-    1: 'Assinar Nome Limpo — Dados do Titular',
+    1: 'Assinar Seu Nome Limpo — Dados do Titular',
     2: 'Código de Confirmação',
     3: 'Pagamento PIX da 1ª Mensalidade',
     4: 'Assinatura Ativa',
@@ -184,7 +162,7 @@ export function CheckoutModal({
       isOpen={isOpen}
       onClose={handleClose}
       title={stepTitles[step]}
-      description={step < 4 ? `Etapa ${displayStep} de ${totalSteps}: Ativação imediata sem burocracia` : undefined}
+      description={step < 4 ? `Etapa ${step} de ${totalSteps}: Ativação imediata sem burocracia` : undefined}
       maxWidth="lg"
     >
       {/* Indicador de Progresso das Etapas */}
@@ -192,9 +170,7 @@ export function CheckoutModal({
         <div className="mb-6">
           <div className="flex items-center justify-between text-[11px] font-mono text-cream-dim mb-2">
             <span className={step >= 1 ? 'text-brand-light font-bold' : ''}>1. Dados do Titular</span>
-            {codeStepEnabled && (
-              <span className={step >= 2 ? 'text-brand-light font-bold' : ''}>2. Código</span>
-            )}
+            <span className={step >= 2 ? 'text-brand-light font-bold' : ''}>2. Código</span>
             <span className={step >= 3 ? 'text-brand-light font-bold' : ''}>
               {totalSteps}. Pagamento PIX (R$ 100)
             </span>
@@ -202,7 +178,7 @@ export function CheckoutModal({
           <div className="h-1.5 w-full bg-ink rounded-full overflow-hidden border border-line">
             <div
               className="h-full bg-gradient-to-r from-brand via-brand-light to-accent transition-all duration-300"
-              style={{ width: `${(displayStep / totalSteps) * 100}%` }}
+              style={{ width: `${(step / totalSteps) * 100}%` }}
             />
           </div>
         </div>
@@ -225,7 +201,7 @@ export function CheckoutModal({
           initialData={formData}
           onSubmit={handleRegisterSubmit}
           isLoading={isLoading}
-          submitLabel={codeStepEnabled ? 'Receber Código no WhatsApp' : 'Gerar PIX de Pagamento'}
+          submitLabel="Receber Código no E-mail"
         />
       )}
 
@@ -234,6 +210,7 @@ export function CheckoutModal({
           document={formData.document}
           email={formData.email}
           phone={formData.phone}
+          emailDestino={otpDispatch?.emailDestino}
           whatsappDestino={otpDispatch?.whatsappDestino}
           simulatedCode={otpDispatch?.simulatedCode}
           onVerified={handleCodeVerified}

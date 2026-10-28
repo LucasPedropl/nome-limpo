@@ -5,7 +5,7 @@ export const LEGAL_DISCLAIMER = {
   points: [
     {
       title: 'Sem garantia de crédito compulsório',
-      text: 'O serviço de Nome Limpo Express atua na regularização da situação cadastral perante órgãos externos de proteção ao crédito. O serviço NÃO garante aumento automático do score de crédito, aprovação compulsória de empréstimos, financiamentos, limites de cheque especial ou concessão de cartões de crédito.',
+      text: 'O serviço Seu Nome Limpo atua na regularização da situação cadastral perante órgãos externos de proteção ao crédito. O serviço NÃO garante aumento automático do score de crédito, aprovação compulsória de empréstimos, financiamentos, limites de cheque especial ou concessão de cartões de crédito.',
     },
     {
       title: 'Políticas soberanas das instituições financeiras',

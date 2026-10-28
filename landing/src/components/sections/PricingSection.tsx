@@ -46,7 +46,7 @@ export function PricingSection({ onOpenCheckout }: PricingSectionProps) {
 
             <div className="text-center mt-2 sm:mt-3">
               <h3 className="font-wide text-xl sm:text-3xl font-black text-cream">
-                Plano Mensal Nome Limpo
+                Plano Mensal Seu Nome Limpo
               </h3>
               <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-cream-dim/90">
                 Manutenção contínua e regularização completa para CPF ou CNPJ

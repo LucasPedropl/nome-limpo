@@ -38,7 +38,7 @@ export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
     e.preventDefault()
     if (!termo.trim()) return
     window.open(
-      whatsappUrl(`Olá! Quero acompanhar meu processo no Nome Limpo Express. CPF/CNPJ ou protocolo: ${termo.trim()}`),
+      whatsappUrl(`Olá! Quero acompanhar meu processo no Seu Nome Limpo. CPF/CNPJ ou protocolo: ${termo.trim()}`),
       '_blank',
       'noopener,noreferrer'
     )
@@ -120,7 +120,7 @@ export function AreaClienteModal({ isOpen, onClose }: AreaClienteModalProps) {
           </div>
 
           <a
-            href={whatsappUrl(`Olá! Quero acompanhar meu processo no Nome Limpo Express. Protocolo: ${assinatura.protocolNumber}`)}
+            href={whatsappUrl(`Olá! Quero acompanhar meu processo no Seu Nome Limpo. Protocolo: ${assinatura.protocolNumber}`)}
             target="_blank"
             rel="noopener noreferrer"
             className="w-full py-3 px-4 rounded-xl text-sm font-bold bg-brand hover:bg-brand-light text-ink flex items-center justify-center gap-2 shadow-md shadow-brand/20 transition"
