@@ -14,7 +14,7 @@ export interface CreatePixSubscriptionParams {
   email: string
   phone: string
   birthDate?: string
-  verificationToken: string // Comprovante do código confirmado no WhatsApp ('' quando a etapa está desligada)
+  verificationToken: string // Comprovante do código confirmado: "email:<e-mail>" ou "whatsapp:<documento>"
 }
 
 export interface PixChargeResponse {
@@ -149,7 +149,7 @@ export const pagwebService = {
           payment_type: 'pix',
           external_code: externalCode,
           due_date: addDays(3),
-          service_name: '1ª Mensalidade - Nome Limpo Express',
+          service_name: '1ª Mensalidade - Seu Nome Limpo',
           service_desc: 'Assinatura do serviço de manutenção e regularização de nome limpo para CPF/CNPJ.',
           customer_payment: {
             name: params.customerName.trim(),

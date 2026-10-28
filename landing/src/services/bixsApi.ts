@@ -7,7 +7,16 @@
 const BIXS_API_BASE = (import.meta.env.VITE_BIXS_API_BASE || 'https://api.bixs.com.br').replace(/\/$/, '')
 const TOKEN_LIFETIME_MS = 50 * 60 * 1000
 
-export class BixsError extends Error {}
+export class BixsError extends Error {
+  status?: number
+  detail?: string // Mensagem crua da Bixs, sem o "(status)" do fim
+
+  constructor(message: string, status?: number, detail?: string) {
+    super(message)
+    this.status = status
+    this.detail = detail
+  }
+}
 
 let cachedToken: { value: string; expiresAt: number } | null = null
 let pendingLogin: Promise<string> | null = null
@@ -83,8 +92,9 @@ export async function bixsRequest<T>(path: string, options: BixsRequestOptions =
   let response: Response
   try {
     response = await send(await getToken())
-    // Token vencido antes da hora: um novo login e uma nova tentativa
-    if (response.status === 401) {
+    // Token vencido antes da hora: um novo login e uma nova tentativa.
+    // A Bixs também responde 401 para código de e-mail errado; esse não é do token e não repete.
+    if (response.status === 401 && /token/i.test(await response.clone().text())) {
       cachedToken = null
       response = await send(await getToken())
     }
@@ -104,7 +114,11 @@ export async function bixsRequest<T>(path: string, options: BixsRequestOptions =
   if (!response.ok) {
     const record = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
     const detail = String(record.message || record.error || '').trim()
-    throw new BixsError(detail ? `${detail} (${response.status})` : `Erro ${response.status} no gateway.`)
+    throw new BixsError(
+      detail ? `${detail} (${response.status})` : `Erro ${response.status} no gateway.`,
+      response.status,
+      detail || undefined
+    )
   }
 
   return data as T
