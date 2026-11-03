@@ -50,8 +50,8 @@ export const MAIN_BENEFITS: BenefitItem[] = [
     icon: Clock,
     title: 'Manutenção Mensal Contínua',
     description:
-      'Enquanto a assinatura de R$ 100,00/mês estiver ativa, nossa equipe monitora sua situação para garantir a estabilidade do cadastro.',
-    tag: 'R$ 100/mês',
+      'Enquanto a assinatura de R$ 129,90/mês estiver ativa, nossa equipe monitora sua situação para garantir a estabilidade do cadastro.',
+    tag: 'R$ 129,90/mês',
   },
   {
     icon: Sparkles,
@@ -74,7 +74,7 @@ export const KEY_METRICS = [
     detail: 'Acompanhamento na plataforma e e-mail',
   },
   {
-    value: 'R$ 100',
+    value: 'R$ 129,90',
     label: 'Assinatura mensal fixa',
     detail: 'Sem multas e com cancelamento a qualquer momento',
   },

@@ -172,7 +172,7 @@ export function CheckoutModal({
             <span className={step >= 1 ? 'text-brand-light font-bold' : ''}>1. Dados do Titular</span>
             <span className={step >= 2 ? 'text-brand-light font-bold' : ''}>2. Código</span>
             <span className={step >= 3 ? 'text-brand-light font-bold' : ''}>
-              {totalSteps}. Pagamento PIX (R$ 100)
+              {totalSteps}. Pagamento PIX (R$ 129,90)
             </span>
           </div>
           <div className="h-1.5 w-full bg-ink rounded-full overflow-hidden border border-line">

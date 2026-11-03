@@ -1,10 +1,10 @@
 export const SITE_NAME = 'Seu Nome Limpo'
 export const SITE_TAGLINE = 'Manutenção e Regularização Cadastral de CPF e CNPJ'
 export const SITE_DESCRIPTION =
-  'Auxiliamos pessoas físicas e jurídicas na regularização de sua situação cadastral perante órgãos de proteção ao crédito, visando que restrições deixem de ser exibidas em consultas externas por uma assinatura de R$ 100,00/mês.'
+  'Auxiliamos pessoas físicas e jurídicas na regularização de sua situação cadastral perante órgãos de proteção ao crédito, visando que restrições deixem de ser exibidas em consultas externas por uma assinatura de R$ 129,90/mês.'
 
 export const PLAN_PRICE = 100.0
-export const PLAN_PRICE_FORMATTED = 'R$\u00A0100,00'
+export const PLAN_PRICE_FORMATTED = 'R$\u00A0129,90'
 export const ESTIMATED_DAYS_DELIVERY = '8 a 15 dias úteis'
 
 export const SALES_WHATSAPP_RAW = '5531993585185'
@@ -13,7 +13,7 @@ export const SUPPORT_EMAIL = 'suporte@nomelimpo.express'
 
 export const SALES_CONTACT_URL =
   'https://wa.me/5531993585185?text=' +
-  encodeURIComponent('Olá! Gostaria de tirar dúvidas sobre o serviço Seu Nome Limpo (R$ 100,00/mês).')
+  encodeURIComponent('Olá! Gostaria de tirar dúvidas sobre o serviço Seu Nome Limpo (R$ 129,90/mês).')
 
 export const SECTION_IDS = {
   hero: 'inicio',

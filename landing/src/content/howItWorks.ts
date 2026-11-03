@@ -29,7 +29,7 @@ export const WORK_STEPS: ProcessStep[] = [
     step: '02',
     title: 'Pagamento do PIX na Própria Tela',
     description:
-      'Sem redirecionamento externo. O QR Code do PIX de R$ 100,00 é gerado na tela com código Copia e Cola. O sistema detecta o pagamento automaticamente.',
+      'Sem redirecionamento externo. O QR Code do PIX de R$ 129,90 é gerado na tela com código Copia e Cola. O sistema detecta o pagamento automaticamente.',
     badge: 'Confirmação instantânea',
     icon: QrCode,
     duration: 'Automático',

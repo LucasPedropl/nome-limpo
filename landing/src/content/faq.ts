@@ -31,9 +31,9 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
   {
     category: 'pagamento',
-    question: 'Como funciona a cobrança mensal de R$ 100,00?',
+    question: 'Como funciona a cobrança mensal de R$ 129,90?',
     answer:
-      'O serviço funciona no modelo de assinatura mensal de R$ 100,00. A primeira mensalidade é paga no ato da contratação via PIX gerado diretamente na tela. As renovações mensais continuam sendo processadas via PIX gerado pela plataforma para manter a manutenção do seu cadastro ativa.',
+      'O serviço funciona no modelo de assinatura mensal de R$ 129,90. A primeira mensalidade é paga no ato da contratação via PIX gerado diretamente na tela. As renovações mensais continuam sendo processadas via PIX gerado pela plataforma para manter a manutenção do seu cadastro ativa.',
   },
   {
     category: 'servico',

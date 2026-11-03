@@ -124,7 +124,7 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
             Pagamento Confirmado!
           </h3>
           <p className="mt-2 text-sm text-cream-dim leading-relaxed max-w-md mx-auto">
-            Recebemos a confirmação bancária da sua primeira mensalidade de R$ 100,00.
+            Recebemos a confirmação bancária da sua primeira mensalidade de R$ 129,90.
           </p>
         </div>
 
@@ -145,7 +145,7 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
           <span>PIX Bixs Cora Gateway</span>
         </span>
         <h3 className="font-wide mt-3 text-2xl font-bold text-cream">
-          Pague R$ 100,00 para Iniciar a Regularização
+          Pague R$ 129,90 para Iniciar a Regularização
         </h3>
         <p className="mt-1.5 text-sm text-cream-dim leading-relaxed">
           Abra o app do seu banco, escaneie o QR Code ou utilize o código Copia e Cola.
@@ -157,7 +157,7 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
         <div className="rounded-3xl bg-white p-5 shadow-2xl ring-4 ring-brand/25">
           <img
             src={charge.qrCodeUrl}
-            alt="QR Code PIX para pagamento de R$ 100,00"
+            alt="QR Code PIX para pagamento de R$ 129,90"
             className="h-52 w-52 object-contain sm:h-56 sm:w-56"
           />
         </div>

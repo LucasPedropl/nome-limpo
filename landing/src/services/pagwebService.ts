@@ -6,7 +6,9 @@ import { sendWhatsAppMessage, whatsappMessages } from '@/services/whatsappServic
  * O status é consultado na própria Bixs; a sessão do assinante fica só neste navegador.
  */
 
-export const MONTHLY_AMOUNT = 100
+// Valor em centavos para a Bixs não receber 12990.000000000002
+export const MONTHLY_AMOUNT_CENTS = 12990
+export const MONTHLY_AMOUNT = MONTHLY_AMOUNT_CENTS / 100
 
 export interface CreatePixSubscriptionParams {
   customerName: string
@@ -145,7 +147,7 @@ export const pagwebService = {
         method: 'POST',
         withApiKey: true,
         body: {
-          amount: MONTHLY_AMOUNT * 100,
+          amount: MONTHLY_AMOUNT_CENTS,
           payment_type: 'pix',
           external_code: externalCode,
           due_date: addDays(3),
@@ -231,7 +233,7 @@ export const pagwebService = {
       throw new ApiError('Não foi possível consultar o pagamento agora. Tente novamente em alguns instantes.')
     }
 
-    const expectedCents = (stored?.amount ?? MONTHLY_AMOUNT) * 100
+    const expectedCents = Math.round((stored?.amount ?? MONTHLY_AMOUNT) * 100)
     const paidCents = invoice?.total_paid || invoice?.amount || 0
     const isPaid = (invoice?.status || '').toUpperCase() === 'PAID' && paidCents >= expectedCents
 

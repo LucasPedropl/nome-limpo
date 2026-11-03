@@ -83,7 +83,7 @@ export function HeroSection({ onOpenCheckout }: HeroSectionProps) {
                 className="w-full sm:w-auto gap-2 text-sm sm:text-base px-6 py-3.5 sm:px-8 sm:py-4"
               >
                 <ShieldCheck className="h-5 w-5 shrink-0" />
-                <span>Regularizar Agora<span className="hidden sm:inline"> (R$ 100/mês)</span></span>
+                <span>Regularizar Agora<span className="hidden sm:inline"> (R$ 129,90/mês)</span></span>
                 <ArrowRight className="h-4 w-4 shrink-0" />
               </Button>
 
@@ -173,7 +173,7 @@ export function HeroSection({ onOpenCheckout }: HeroSectionProps) {
                 </div>
                 <div className="flex flex-wrap items-center justify-between rounded-xl bg-ink/70 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-line/60 gap-x-2 gap-y-1">
                   <span className="text-cream">Investimento Mensal</span>
-                  <span className="text-brand-light font-mono font-bold text-xs sm:text-base shrink-0 whitespace-nowrap">R$ 100,00</span>
+                  <span className="text-brand-light font-mono font-bold text-xs sm:text-base shrink-0 whitespace-nowrap">R$ 129,90</span>
                 </div>
               </div>
 
