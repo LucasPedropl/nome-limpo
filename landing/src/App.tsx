@@ -4,6 +4,7 @@ import { SiteFooter } from '@/components/layout/SiteFooter'
 import { FloatingWhatsAppButton } from '@/components/ui/FloatingWhatsAppButton'
 import { HeroSection } from '@/components/sections/HeroSection'
 import { BenefitsSection } from '@/components/sections/BenefitsSection'
+import { VideoSection } from '@/components/sections/VideoSection'
 import { HowItWorksSection } from '@/components/sections/HowItWorksSection'
 import { PricingSection } from '@/components/sections/PricingSection'
 import { ComparisonSection } from '@/components/sections/ComparisonSection'
@@ -67,6 +68,7 @@ export function App() {
       <main id="conteudo-principal" className="flex-1">
         <HeroSection onOpenCheckout={() => handleOpenCheckout('PF')} />
         <BenefitsSection />
+        <VideoSection onOpenCheckout={() => handleOpenCheckout('PF')} />
         <HowItWorksSection onOpenCheckout={() => handleOpenCheckout('PF')} />
         <PricingSection onOpenCheckout={() => handleOpenCheckout('PF')} />
         <ComparisonSection />

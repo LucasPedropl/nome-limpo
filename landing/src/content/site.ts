@@ -18,6 +18,7 @@ export const SALES_CONTACT_URL =
 export const SECTION_IDS = {
   hero: 'inicio',
   benefits: 'beneficios',
+  video: 'video',
   howItWorks: 'como-funciona',
   pricing: 'plano',
   comparison: 'comparativo',
