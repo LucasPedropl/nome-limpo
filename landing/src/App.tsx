@@ -67,8 +67,8 @@ export function App() {
       {/* Conteúdo Principal da Landing Page */}
       <main id="conteudo-principal" className="flex-1">
         <HeroSection onOpenCheckout={() => handleOpenCheckout('PF')} />
-        <BenefitsSection />
         <VideoSection onOpenCheckout={() => handleOpenCheckout('PF')} />
+        <BenefitsSection />
         <HowItWorksSection onOpenCheckout={() => handleOpenCheckout('PF')} />
         <PricingSection onOpenCheckout={() => handleOpenCheckout('PF')} />
         <ComparisonSection />
