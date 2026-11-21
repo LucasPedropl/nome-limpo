@@ -27,6 +27,7 @@ export interface PixChargeResponse {
   pixEmv: string
   qrCodeUrl: string
   expiresAt: string
+  dueDate?: string // Fatura do plano: vencimento (AAAA-MM-DD) em vez da janela de 25 min do Pix avulso
   status: 'PENDING' | 'PAID' | 'EXPIRED'
   recurrentIntervalDays: number
 }

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { User, Mail, Phone, Calendar, ArrowRight, ShieldCheck, Building } from 'lucide-react'
+import { User, Mail, Phone, Calendar, ArrowRight, ShieldCheck, Building, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { maskCpf, maskCnpj, maskPhone, maskDate } from '@/lib/masks'
 import { isValidCpf, isValidCnpj, isValidEmail, isValidPhone, isValidDate } from '@/lib/validators'
@@ -11,6 +11,7 @@ export interface RegistrationFormData {
   phone: string
   document: string
   birthDate: string
+  password?: string // Só na assinatura por plano: senha da conta do cliente na Bixs
 }
 
 interface Step1Props {
@@ -19,6 +20,8 @@ interface Step1Props {
   onSubmit: (data: RegistrationFormData) => Promise<void>
   isLoading: boolean
   submitLabel?: string // Sem a etapa do e-mail o botão já gera o PIX
+  needsPassword?: (docType: 'PF' | 'PJ') => boolean
+  minPasswordLength?: number
 }
 
 export function Step1RegisterForm({
@@ -27,6 +30,8 @@ export function Step1RegisterForm({
   onSubmit,
   isLoading,
   submitLabel = 'Receber Código de Confirmação no E-mail',
+  needsPassword,
+  minPasswordLength = 8,
 }: Step1Props) {
   const [docType, setDocType] = useState<'PF' | 'PJ'>(initialData?.docType ?? initialDocType)
   const [customerName, setCustomerName] = useState(initialData?.customerName ?? '')
@@ -34,10 +39,21 @@ export function Step1RegisterForm({
   const [phone, setPhone] = useState(initialData?.phone ?? '')
   const [document, setDocument] = useState(initialData?.document ?? '')
   const [birthDate, setBirthDate] = useState(initialData?.birthDate ?? '')
+  const [password, setPassword] = useState(initialData?.password ?? '')
+  const [passwordConfirm, setPasswordConfirm] = useState(initialData?.password ?? '')
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const askPassword = needsPassword?.(docType) ?? false
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {}
+
+    if (askPassword) {
+      if (password.length < minPasswordLength) {
+        errs.password = `A senha precisa ter pelo menos ${minPasswordLength} caracteres.`
+      } else if (password !== passwordConfirm) {
+        errs.passwordConfirm = 'As senhas não são iguais.'
+      }
+    }
 
     if (customerName.trim().length < 4) {
       errs.customerName = docType === 'PF' ? 'Informe o seu nome completo.' : 'Informe a razão social da sua empresa.'
@@ -82,6 +98,7 @@ export function Step1RegisterForm({
       phone: phone.trim(),
       document: document.trim(),
       birthDate: birthDate.trim(),
+      password: askPassword ? password : undefined,
     })
   }
 
@@ -215,6 +232,52 @@ export function Step1RegisterForm({
           {errors.phone && <p className="mt-1.5 text-xs text-red-400">{errors.phone}</p>}
         </div>
       </div>
+
+      {/* Senha da conta (assinatura por plano) */}
+      {askPassword && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs sm:text-sm font-mono text-cream-dim block mb-1.5">
+              Crie uma Senha *
+            </label>
+            <div className="relative">
+              <input
+                type="password"
+                required
+                autoComplete="new-password"
+                minLength={minPasswordLength}
+                placeholder={`Mínimo ${minPasswordLength} caracteres`}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-xl border border-line bg-ink px-4 py-3 text-sm sm:text-base text-cream placeholder-cream-dim/40 focus:border-brand focus:outline-none transition-colors"
+              />
+              <Lock className="h-5 w-5 absolute right-3.5 top-3.5 text-cream-dim/50 pointer-events-none" />
+            </div>
+            {errors.password && <p className="mt-1.5 text-xs text-red-400">{errors.password}</p>}
+          </div>
+
+          <div>
+            <label className="text-xs sm:text-sm font-mono text-cream-dim block mb-1.5">
+              Repita a Senha *
+            </label>
+            <div className="relative">
+              <input
+                type="password"
+                required
+                autoComplete="new-password"
+                value={passwordConfirm}
+                onChange={(e) => setPasswordConfirm(e.target.value)}
+                className="w-full rounded-xl border border-line bg-ink px-4 py-3 text-sm sm:text-base text-cream placeholder-cream-dim/40 focus:border-brand focus:outline-none transition-colors"
+              />
+              <Lock className="h-5 w-5 absolute right-3.5 top-3.5 text-cream-dim/50 pointer-events-none" />
+            </div>
+            {errors.passwordConfirm && <p className="mt-1.5 text-xs text-red-400">{errors.passwordConfirm}</p>}
+          </div>
+          <p className="sm:col-span-2 -mt-2 text-[11px] text-cream-dim">
+            É a senha da sua conta de assinante. Já tem conta com este e-mail? Use a mesma senha.
+          </p>
+        </div>
+      )}
 
       {/* Aviso de Segurança */}
       <div className="rounded-xl border border-line/60 bg-ink/70 p-3.5 flex items-center gap-3 text-xs text-cream-dim">

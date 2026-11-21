@@ -1,9 +1,12 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { KeyRound, Mail, MessageCircle, ArrowRight, RotateCw, CheckCircle2, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { tokenService } from '@/services/tokenService'
+import { tokenService, type TokenDispatchResult, type TokenVerifyResult } from '@/services/tokenService'
 
 interface Step2Props {
+  // Troca quem confere e reenvia o código (assinatura por plano: o cadastro na Bixs confere)
+  verifyCode?: (code: string) => Promise<TokenVerifyResult>
+  resendCode?: () => Promise<TokenDispatchResult>
   document: string
   email: string
   phone?: string
@@ -25,6 +28,8 @@ export function Step2TokenValidation({
   onVerified,
   onBack,
   isLoading,
+  verifyCode,
+  resendCode,
 }: Step2Props) {
   const [tokenInput, setTokenInput] = useState('')
   const [activeSimulatedCode, setActiveSimulatedCode] = useState(initialCode)
@@ -48,7 +53,7 @@ export function Step2TokenValidation({
     e.preventDefault()
     setErrorMessage('')
 
-    const res = await tokenService.verifyToken(document, email, tokenInput)
+    const res = verifyCode ? await verifyCode(tokenInput) : await tokenService.verifyToken(document, email, tokenInput)
     if (!res.valid || !res.verificationToken) {
       setErrorMessage(res.message)
       return
@@ -63,7 +68,7 @@ export function Step2TokenValidation({
     setErrorMessage('')
 
     try {
-      const res = await tokenService.sendToken(document, email, phone)
+      const res = resendCode ? await resendCode() : await tokenService.sendToken(document, email, phone)
       if (!res.success) {
         setErrorMessage(res.message)
         return

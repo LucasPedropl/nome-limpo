@@ -6,9 +6,20 @@ import { pagwebService, type PixChargeResponse, type PaymentStatusCheckResult } 
 interface Step3Props {
   charge: PixChargeResponse
   onPaymentSuccess: (statusResult?: PaymentStatusCheckResult) => void
+  // Assinatura por plano consulta o billing do cliente; sem isso, a fatura avulsa da Bixs
+  checkStatus?: (manual: boolean) => Promise<PaymentStatusCheckResult>
+  allowSimulation?: boolean
 }
 
-export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
+function formatDueDate(raw: string): string {
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : raw
+}
+
+export function Step3PixPayment({ charge, onPaymentSuccess, checkStatus, allowSimulation = true }: Step3Props) {
+  const fetchStatus = (manual: boolean) =>
+    checkStatus ? checkStatus(manual) : pagwebService.checkPaymentStatus(charge.txid, charge.paymentId)
+  const amountLabel = (charge.amount || 129.9).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   const [copied, setCopied] = useState(false)
   const [timeLeft, setTimeLeft] = useState(25 * 60) // 25 minutos
   const [isSimulating, setIsSimulating] = useState(false)
@@ -17,14 +28,14 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
   const [checkStatusText, setCheckStatusText] = useState('')
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Countdown timer
+  // Countdown timer (só no Pix avulso; a fatura do plano tem data de vencimento)
   useEffect(() => {
-    if (timeLeft <= 0 || isPaid) return
+    if (timeLeft <= 0 || isPaid || charge.dueDate) return
     const timer = setInterval(() => {
       setTimeLeft((prev) => prev - 1)
     }, 1000)
     return () => clearInterval(timer)
-  }, [timeLeft, isPaid])
+  }, [timeLeft, isPaid, charge.dueDate])
 
   // Polling automático a cada 5 segundos consultando a fatura direto na Bixs
   useEffect(() => {
@@ -32,7 +43,7 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
 
     pollingRef.current = setInterval(async () => {
       try {
-        const result = await pagwebService.checkPaymentStatus(charge.txid, charge.paymentId)
+        const result = await fetchStatus(false)
         if (result.isPaid || result.status === 'PAID') {
           setIsPaid(true)
           if (pollingRef.current) clearInterval(pollingRef.current)
@@ -48,7 +59,7 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current)
     }
-  }, [charge.txid, charge.paymentId, isPaid, onPaymentSuccess])
+  }, [charge.txid, charge.paymentId, isPaid, onPaymentSuccess, checkStatus])
 
   const copyToClipboard = async () => {
     try {
@@ -66,7 +77,7 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
     setIsChecking(true)
     setCheckStatusText('')
     try {
-      const result = await pagwebService.checkPaymentStatus(charge.txid, charge.paymentId)
+      const result = await fetchStatus(true)
       if (result.isPaid || result.status === 'PAID') {
         setIsPaid(true)
         if (pollingRef.current) clearInterval(pollingRef.current)
@@ -124,7 +135,7 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
             Pagamento Confirmado!
           </h3>
           <p className="mt-2 text-sm text-cream-dim leading-relaxed max-w-md mx-auto">
-            Recebemos a confirmação bancária da sua primeira mensalidade de R$ 129,90.
+            Recebemos a confirmação bancária da sua primeira mensalidade de {amountLabel}.
           </p>
         </div>
 
@@ -145,7 +156,7 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
           <span>PIX Bixs Cora Gateway</span>
         </span>
         <h3 className="font-wide mt-3 text-2xl font-bold text-cream">
-          Pague R$ 129,90 para Iniciar a Regularização
+          Pague {amountLabel} para Iniciar a Regularização
         </h3>
         <p className="mt-1.5 text-sm text-cream-dim leading-relaxed">
           Abra o app do seu banco, escaneie o QR Code ou utilize o código Copia e Cola.
@@ -157,7 +168,7 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
         <div className="rounded-3xl bg-white p-5 shadow-2xl ring-4 ring-brand/25">
           <img
             src={charge.qrCodeUrl}
-            alt="QR Code PIX para pagamento de R$ 129,90"
+            alt={`QR Code PIX para pagamento de ${amountLabel}`}
             className="h-52 w-52 object-contain sm:h-56 sm:w-56"
           />
         </div>
@@ -165,8 +176,8 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
         {/* Temporizador */}
         <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-line bg-ink px-4 py-1.5 font-mono text-xs sm:text-sm text-cream-dim">
           <Clock className="h-4 w-4 text-brand-light" />
-          <span>Vencimento em:</span>
-          <span className="font-bold text-cream">{formattedTime}</span>
+          <span>Vencimento{charge.dueDate ? ':' : ' em:'}</span>
+          <span className="font-bold text-cream">{charge.dueDate ? formatDueDate(charge.dueDate) : formattedTime}</span>
         </div>
       </div>
 
@@ -236,7 +247,7 @@ export function Step3PixPayment({ charge, onPaymentSuccess }: Step3Props) {
       )}
 
       {/* Botão de Demonstração / Teste Imediato (Padrão Contratos) — apenas em desenvolvimento */}
-      {import.meta.env.DEV && (
+      {import.meta.env.DEV && allowSimulation && (
         <div className="pt-1">
           <Button
             type="button"

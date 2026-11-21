@@ -13,6 +13,11 @@ import {
 } from '@/services/pagwebService'
 import { contractService, type ContractData } from '@/services/contractService'
 import { tokenService } from '@/services/tokenService'
+import {
+  isPlanCheckout,
+  MIN_PASSWORD_LENGTH,
+  subscriptionService,
+} from '@/services/subscriptionService'
 
 interface CheckoutModalProps {
   isOpen: boolean
@@ -28,11 +33,13 @@ export function CheckoutModal({
   initialDocType = 'PF',
 }: CheckoutModalProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
-  const [formData, setFormData] = useState<RegistrationFormData | null>(null)
+  const [formDataState, setFormData] = useState<RegistrationFormData | null>(null)
   const [otpDispatch, setOtpDispatch] = useState<{ emailDestino?: string; whatsappDestino?: string; simulatedCode?: string } | null>(null)
-  const [pixCharge, setPixCharge] = useState<PixChargeResponse | null>(null)
+  const [pixChargeState, setPixCharge] = useState<PixChargeResponse | null>(null)
   const [contract, setContract] = useState<ContractData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const formData = formDataState
+  const pixCharge = pixChargeState
   const [errorMessage, setErrorMessage] = useState('')
 
   // Reseta ao fechar
@@ -46,6 +53,26 @@ export function CheckoutModal({
       setContract(null)
       setErrorMessage('')
     }, 300)
+  }
+
+  const planMode = formData ? isPlanCheckout(formData.docType) : false
+
+  // Assinatura por plano: cria/entra na conta do cliente e assina; já paga vai direto ao sucesso
+  const startPlanCheckout = async (data: RegistrationFormData, verificationCode?: string) => {
+    const charge = await subscriptionService.subscribe({
+      customerName: data.customerName,
+      email: data.email,
+      document: data.document,
+      phone: data.phone,
+      password: data.password ?? '',
+      verificationCode,
+    })
+    setPixCharge(charge)
+    if (charge.status === 'PAID') {
+      await handlePaymentSuccess(undefined, data, charge)
+      return
+    }
+    setStep(3)
   }
 
   // Gera a cobrança PIX na Bixs e vai para o pagamento
@@ -68,6 +95,17 @@ export function CheckoutModal({
     setErrorMessage('')
     try {
       setFormData(data)
+      if (isPlanCheckout(data.docType)) {
+        const sent = await subscriptionService.sendSignupCode(data.email)
+        if (sent.status === 'exists') {
+          // E-mail com conta: entra com a senha digitada, sem código
+          await startPlanCheckout(data)
+          return
+        }
+        setOtpDispatch({ emailDestino: data.email })
+        setStep(2)
+        return
+      }
       const res = await tokenService.sendToken(data.document, data.email, data.phone)
       if (!res.success) {
         setErrorMessage(res.message)
@@ -88,8 +126,13 @@ export function CheckoutModal({
     setIsLoading(true)
     setErrorMessage('')
     try {
-      await generatePixCharge(formData, verificationToken)
+      if (isPlanCheckout(formData.docType)) {
+        await startPlanCheckout(formData, verificationToken)
+      } else {
+        await generatePixCharge(formData, verificationToken)
+      }
     } catch (err) {
+      // Código errado (WrongCodeError) e os outros erros ficam na etapa 2, com a mensagem no topo
       setErrorMessage(err instanceof Error ? err.message : PIX_UNAVAILABLE_MESSAGE)
     } finally {
       setIsLoading(false)
@@ -97,7 +140,14 @@ export function CheckoutModal({
   }
 
   // Passo 3 -> Passo 4 (Pagamento confirmado na Bixs)
-  const handlePaymentSuccess = async (statusResult?: PaymentStatusCheckResult) => {
+  // data/charge vêm direto quando a assinatura já estava paga (o estado ainda não atualizou)
+  const handlePaymentSuccess = async (
+    statusResult?: PaymentStatusCheckResult,
+    dataOverride?: RegistrationFormData,
+    chargeOverride?: PixChargeResponse
+  ) => {
+    const formData = dataOverride ?? formDataState
+    const pixCharge = chargeOverride ?? pixChargeState
     if (!formData) return
     setIsLoading(true)
     setErrorMessage('')
@@ -125,7 +175,15 @@ export function CheckoutModal({
         loggedAt: new Date().toISOString(),
       })
 
-      if (paymentId) {
+      if (paymentId && isPlanCheckout(formData.docType)) {
+        void subscriptionService.notifyPaymentConfirmed(
+          paymentId,
+          formData.phone,
+          formData.customerName,
+          newContract.protocolNumber,
+          newContract.estimatedCompletionDate
+        )
+      } else if (paymentId) {
         void pagwebService.notifyPaymentConfirmed(paymentId, newContract.protocolNumber, newContract.estimatedCompletionDate)
       }
 
@@ -202,6 +260,8 @@ export function CheckoutModal({
           onSubmit={handleRegisterSubmit}
           isLoading={isLoading}
           submitLabel="Receber Código no E-mail"
+          needsPassword={isPlanCheckout}
+          minPasswordLength={MIN_PASSWORD_LENGTH}
         />
       )}
 
@@ -214,6 +274,23 @@ export function CheckoutModal({
           whatsappDestino={otpDispatch?.whatsappDestino}
           simulatedCode={otpDispatch?.simulatedCode}
           onVerified={handleCodeVerified}
+          {...(planMode && {
+            // O cadastro na Bixs confere o código; aqui só o formato
+            verifyCode: async (code: string) =>
+              /^\d{6}$/.test(code)
+                ? { valid: true, message: '', verificationToken: code }
+                : { valid: false, message: 'O código deve ter exatamente 6 dígitos numéricos.' },
+            resendCode: async () => {
+              try {
+                const sent = await subscriptionService.sendSignupCode(formData.email)
+                return sent.status === 'sent'
+                  ? { success: true, message: '', expiresAt: sent.expiresAt, emailDestino: formData.email }
+                  : { success: false, message: 'Este e-mail já tem cadastro. Volte e informe a senha dessa conta.', expiresAt: 0 }
+              } catch (err) {
+                return { success: false, message: err instanceof Error ? err.message : 'Não foi possível reenviar.', expiresAt: 0 }
+              }
+            },
+          })}
           onBack={() => {
             setErrorMessage('')
             setStep(1)
@@ -226,6 +303,7 @@ export function CheckoutModal({
         <Step3PixPayment
           charge={pixCharge}
           onPaymentSuccess={handlePaymentSuccess}
+          {...(planMode && { checkStatus: subscriptionService.checkPaymentStatus, allowSimulation: false })}
         />
       )}
 

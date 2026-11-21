@@ -103,6 +103,10 @@ export async function bixsRequest<T>(path: string, options: BixsRequestOptions =
     throw new BixsError('Não foi possível falar com o gateway. Verifique sua conexão e tente novamente.')
   }
 
+  return parseBixsResponse<T>(response)
+}
+
+async function parseBixsResponse<T>(response: Response): Promise<T> {
   const text = await response.text()
   let data: unknown = null
   try {
@@ -122,4 +126,31 @@ export async function bixsRequest<T>(path: string, options: BixsRequestOptions =
   }
 
   return data as T
+}
+
+interface BixsCustomerRequestOptions {
+  method?: 'GET' | 'POST'
+  body?: unknown
+  token?: string // Bearer do próprio cliente; sem ele a rota precisa ser pública
+}
+
+/**
+ * Chamada como o cliente (ou pública), sem a conta da landing: cadastro, login e billing do assinante.
+ */
+export async function bixsCustomerRequest<T>(path: string, options: BixsCustomerRequestOptions = {}): Promise<T> {
+  const headers: Record<string, string> = { accept: 'application/json' }
+  if (options.body !== undefined) headers['Content-Type'] = 'application/json'
+  if (options.token) headers.Authorization = `Bearer ${options.token}`
+
+  let response: Response
+  try {
+    response = await fetch(`${BIXS_API_BASE}/${path.replace(/^\//, '')}`, {
+      method: options.method || 'GET',
+      headers,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    })
+  } catch {
+    throw new BixsError('Não foi possível falar com o gateway. Verifique sua conexão e tente novamente.')
+  }
+  return parseBixsResponse<T>(response)
 }
