@@ -3,7 +3,7 @@ export const SITE_TAGLINE = 'Manutenção e Regularização Cadastral de CPF e C
 export const SITE_DESCRIPTION =
   'Auxiliamos pessoas físicas e jurídicas na regularização de sua situação cadastral perante órgãos de proteção ao crédito, visando que restrições deixem de ser exibidas em consultas externas por uma assinatura de R$ 129,90/mês.'
 
-export const PLAN_PRICE = 100.0
+export const PLAN_PRICE = 129.9
 export const PLAN_PRICE_FORMATTED = 'R$\u00A0129,90'
 export const ESTIMATED_DAYS_DELIVERY = '8 a 15 dias úteis'
 
