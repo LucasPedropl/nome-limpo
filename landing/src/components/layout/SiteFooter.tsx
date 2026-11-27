@@ -18,7 +18,7 @@ export function SiteFooter() {
             </p>
             <div className="flex items-center gap-2 text-xs sm:text-sm text-brand-light font-medium">
               <Shield className="h-4 w-4 shrink-0" />
-              <span>Garantia de 45 dias úteis ou reembolso integral</span>
+              <span>Garantia de 8 a 15 dias úteis ou reembolso integral</span>
             </div>
           </div>
 

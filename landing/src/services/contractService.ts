@@ -57,7 +57,7 @@ export const contractService = {
       planName: 'Plano Seu Nome Limpo Mensal Recorrente',
       planAmountFormatted: 'R$ 129,90/mês',
       warrantyTerms:
-        'Garantia contratual de 45 dias úteis ou restituição de 100% dos valores pagos, caso os apontamentos não deixem de ser exibidos em consultas externas nos órgãos de proteção ao crédito.',
+        'Garantia contratual de 8 a 15 dias úteis ou restituição de 100% dos valores pagos, caso os apontamentos não deixem de ser exibidos em consultas externas nos órgãos de proteção ao crédito.',
       status: 'ATIVO',
       paymentId: data.paymentId,
     }

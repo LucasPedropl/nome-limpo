@@ -14,7 +14,7 @@ export function PricingSection({ onOpenCheckout }: PricingSectionProps) {
     'Válido para CPF (Pessoa Física) ou CNPJ (Empresa)',
     'Monitoramento mensal contínuo de novas negativações',
     'Sem taxas ocultas de consulta ou taxa de adesão extra',
-    'Garantia contratual de 45 dias úteis ou dinheiro de volta',
+    'Garantia contratual de 8 a 15 dias úteis ou dinheiro de volta',
     'Sem fidelidade: cancele ou pause quando desejar',
     'Pagamento automático e seguro via PIX sem burocracia',
   ]
